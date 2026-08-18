@@ -36,7 +36,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
-      - run: pnpm install --frozen-lockfile --include=optional
+      - run: pnpm install --frozen-lockfile=true
       - env:
           NODE_OPTIONS: --experimental-ffi
         run: deno task release:prepare "${{ github.ref_name }}"
