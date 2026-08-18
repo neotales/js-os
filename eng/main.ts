@@ -396,6 +396,14 @@ async function writeNpmPackage(name: string, source: string, pkg: PackageJson): 
   );
   await Deno.writeTextFile(join(destination, "src", "index.ts"), isElevatedNpmIndex());
   await Deno.writeTextFile(join(destination, "src", "node.ts"), isElevatedNpmNode());
+  const nodeFfiPath = join(destination, "src", "ffi_node.ts");
+  const nodeFfi = await Deno.readTextFile(nodeFfiPath);
+  await Deno.writeTextFile(
+    nodeFfiPath,
+    nodeFfi
+      .replaceAll("advapi32.close()", "advapi32.lib.close()")
+      .replaceAll("kernel32.close()", "kernel32.lib.close()"),
+  );
   await Deno.writeTextFile(
     join(destination, "src", "ffi_deno.ts"),
     isElevatedDenoFfi("(globalThis as typeof globalThis & { Deno?: any }).Deno"),

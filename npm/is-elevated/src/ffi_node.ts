@@ -65,7 +65,7 @@ export function evalIsProcessElevated(cache = true): boolean {
       kernel32.functions.CloseHandle(tokenHandle);
     }
   } finally {
-    advapi32.close();
-    kernel32.close();
+    advapi32.lib.close();
+    kernel32.lib.close();
   }
 }
