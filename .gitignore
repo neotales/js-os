@@ -1,0 +1,6 @@
+node_modules/
+npm/*/node_modules/
+npm/*/dist/
+npm/*/*.tgz
+.DS_Store
+artifacts/

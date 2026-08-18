@@ -1,0 +1,30 @@
+{
+  "name": "@neotales/js-os-workspace",
+  "private": true,
+  "workspaces": [
+    "npm/*"
+  ],
+  "scripts": {
+    "import": "deno task import",
+    "modules": "deno task modules",
+    "normalize": "deno task normalize",
+    "build": "deno task build",
+    "test": "deno task test",
+    "lint": "deno task lint",
+    "fmt": "deno task fmt",
+    "fmt:check": "deno task fmt:check",
+    "audit": "deno task audit",
+    "check": "deno task check",
+    "pack": "deno task pack"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "oxfmt": "^0.35.0",
+    "oxlint": "^1.46.0"
+  },
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=11"
+  },
+  "packageManager": "pnpm@11.21.0"
+}
