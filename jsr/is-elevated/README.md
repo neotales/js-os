@@ -58,18 +58,11 @@ if (elevated) {
 
 ## Elevation Detection
 
-On Unix-like systems, elevation means an effective user ID of `0`. The module uses an effective ID
-when the runtime exposes one and otherwise falls back to `Deno.uid()`. This keeps the result tied to
-the identity under which the process is actually executing.
+On Unix-like systems, elevation means an effective user ID of `0`. The module uses an effective ID when the runtime exposes one and otherwise falls back to `Deno.uid()`. This keeps the result tied to the identity under which the process is actually executing.
 
-On Windows, the module opens the current process token and calls `GetTokenInformation` with
-`TokenElevation`. The returned `TokenIsElevated` value describes the current process token, which is
-the relevant answer for an operation that needs administrator privileges.
+On Windows, the module opens the current process token and calls `GetTokenInformation` with `TokenElevation`. The returned `TokenIsElevated` value describes the current process token, which is the relevant answer for an operation that needs administrator privileges.
 
-This intentionally does not use `Shell32.IsUserAnAdmin`. That API is a convenience membership
-check and can disagree with the current token under User Account Control: an administrator account
-may be running with a filtered, non-elevated token. Token elevation inspection reports the process
-state directly.
+This intentionally does not use `Shell32.IsUserAnAdmin`. That API is a convenience membership check and can disagree with the current token under User Account Control: an administrator account may be running with a filtered, non-elevated token. Token elevation inspection reports the process state directly.
 
 ## Runtime Support
 

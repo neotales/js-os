@@ -5,7 +5,6 @@
   "keywords": [
     "admin",
     "elevated",
-    "neostd",
     "root",
     "std",
     "sudo",
@@ -18,7 +17,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/neotales/js-os.git"
+    "url": "git+https://github.com/neotales/js-os.git",
+    "directory": "npm/is-elevated"
   },
   "files": [
     "esm",

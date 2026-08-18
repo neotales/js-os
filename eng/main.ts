@@ -153,13 +153,17 @@ function npmManifest(pkg: PackageJson): Record<string, unknown> {
     name: pkg.name.replace("@neostd/", "@neotales/"),
     version: pkg.version,
     description: pkg.description,
-    keywords: pkg.keywords,
+    keywords: pkg.keywords?.filter((keyword) => keyword !== "neostd"),
     license: pkg.license ?? "MIT",
     type: "module",
     files: ["esm", "types"],
     exports: npmExports(pkg),
     publishConfig: { access: "public" },
-    repository: { type: "git", url: "git+https://github.com/neotales/js-os.git" },
+    repository: {
+      type: "git",
+      url: "git+https://github.com/neotales/js-os.git",
+      directory: `npm/${pkg.name.replace("@neostd/", "")}`,
+    },
     bugs: { url: "https://github.com/neotales/js-os/issues" },
     homepage: "https://github.com/neotales/js-os",
     engines: { node: ">=22" },
@@ -178,6 +182,13 @@ function npmManifest(pkg: PackageJson): Record<string, unknown> {
     },
     ...(koffi ? { optionalDependencies: { koffi } } : {}),
   };
+}
+
+function npmIgnore(): string {
+  return (
+    ["src/", "tests/", ".test/", "node_modules/", "*.tgz", "*.ts", "tsconfig*.json"].join("\n") +
+    "\n"
+  );
 }
 
 function npmTsConfig(): Record<string, unknown> {
@@ -259,7 +270,18 @@ if (process.platform === "win32") {
   }
 }
 
-/** Returns whether the current process is elevated. */
+/**
+ * Reports whether the current process is running with elevated privileges.
+ *
+ * @param cache - Whether to reuse the result from the first evaluation.
+ * @returns Whether the process has elevated privileges.
+ * @example
+ * import { isElevated } from "@neotales/is-elevated";
+ *
+ * if (isElevated()) {
+ *   console.log("The process is elevated.");
+ * }
+ */
 export function isElevated(cache = true): boolean {
   return impl(cache);
 }
@@ -271,7 +293,16 @@ function isElevatedNpmNode(): string {
 
 let elevated: boolean | undefined;
 
-/** Detects elevation from the effective user ID, or the real user ID when unavailable. */
+/**
+ * Reports whether the current process has an effective user ID of zero.
+ *
+ * @param cache - Whether to reuse the result from the first evaluation.
+ * @returns Whether the process has an effective user ID of zero.
+ * @example
+ * import { evalIsProcessElevated } from "./node.js";
+ *
+ * const elevated = evalIsProcessElevated();
+ */
 export function evalIsProcessElevated(cache = true): boolean {
   if (cache && elevated !== undefined) {
     return elevated;
@@ -284,10 +315,39 @@ export function evalIsProcessElevated(cache = true): boolean {
 `;
 }
 
-function isElevatedDenoFfi(denoExpression: string): string {
-  return `let elevated: boolean | undefined;
+function ffiJSDoc(importPath: string): string {
+  return `/**
+ * Reports whether the current process is running with elevated privileges.
+ *
+ * @param cache - Whether to reuse the result from the first evaluation.
+ * @returns Whether the process has elevated privileges.
+ * @example
+ * \`\`\`ts
+ * import { evalIsProcessElevated } from "${importPath}";
+ *
+ * const elevated = evalIsProcessElevated();
+ * \`\`\`
+ */`;
+}
+
+function documentFfi(source: string, importPath: string): string {
+  return source.replace(
+    "export function evalIsProcessElevated(cache = true): boolean {",
+    `${ffiJSDoc(importPath)}\nexport function evalIsProcessElevated(cache = true): boolean {`,
+  );
+}
+
+function isElevatedDenoFfi(denoExpression: string, importPath: string): string {
+  return `/**
+ * Implements native Windows elevation detection for Deno.
+ *
+ * @module @neotales/is-elevated/ffi_deno
+ */
+
+let elevated: boolean | undefined;
 const deno = ${denoExpression};
 
+${ffiJSDoc(importPath)}
 export function evalIsProcessElevated(cache = true): boolean {
   if (!cache || elevated === undefined) {
     elevated = deno.uid() === 0;
@@ -350,16 +410,59 @@ export function evalIsProcessElevated(cache = true): boolean {
 async function writeDenoPackage(name: string, source: string, pkg: PackageJson): Promise<void> {
   const destination = join(jsrDir, name);
   await Deno.mkdir(destination, { recursive: true });
-  await Deno.writeTextFile(join(destination, "ffi_deno.ts"), isElevatedDenoFfi("Deno"));
+  await Deno.writeTextFile(
+    join(destination, "ffi_deno.ts"),
+    isElevatedDenoFfi("Deno", "./ffi_deno.ts"),
+  );
   await Deno.copyFile(join(source, "LICENSE.md"), join(destination, "LICENSE.md"));
   const upstreamReadme = rebrand(await Deno.readTextFile(join(source, "README.md"))).replace(
     /## Runtime Notes[\s\S]*?(?=\n## License)/,
-    "## Elevation Detection\n\nOn Unix-like systems, elevation means an effective user ID of `0`. The module uses an effective ID when the runtime exposes one and otherwise falls back to `Deno.uid()`.\n\nOn Windows, the module opens the current process token and calls `GetTokenInformation` with `TokenElevation`. This reports the current process token directly, unlike `Shell32.IsUserAnAdmin`, which checks administrator-group membership and can disagree under User Account Control when an administrator account has a filtered token.\n\n## Runtime Support\n\nThis JSR package supports Deno only. Use `npm:@neotales/is-elevated` when running under Node, Bun, or when a Deno project explicitly needs the cross-runtime npm package.\n",
+    "## Elevation Detection\n\nOn Unix-like systems, elevation means an effective user ID of `0`. The module uses an effective ID when the runtime exposes one and otherwise falls back to `Deno.uid()`. This keeps the result tied to the identity under which the process is actually executing.\n\nOn Windows, the module opens the current process token and calls `GetTokenInformation` with `TokenElevation`. The returned `TokenIsElevated` value describes the current process token, which is the relevant answer for an operation that needs administrator privileges.\n\nThis intentionally does not use `Shell32.IsUserAnAdmin`. That API is a convenience membership check and can disagree with the current token under User Account Control: an administrator account may be running with a filtered, non-elevated token. Token elevation inspection reports the process state directly.\n\n## Runtime Support\n\nThis JSR package supports Deno only. Use `npm:@neotales/is-elevated` when running under Node, Bun, or when a Deno project explicitly needs the cross-runtime npm package.\n",
   );
   await Deno.writeTextFile(join(destination, "README.md"), `${upstreamReadme}\n`);
   await Deno.writeTextFile(
     join(destination, "mod.ts"),
-    `type ElevationEvaluator = (cache?: boolean) => boolean;\n\nlet elevated: boolean | undefined;\nconst deno = Deno as typeof Deno & { euid?: () => number };\n\nfunction evalUnixElevation(cache = true): boolean {\n  if (cache && elevated !== undefined) {\n    return elevated;\n  }\n  elevated = (deno.euid?.() ?? Deno.uid()) === 0;\n  return elevated;\n}\n\nlet impl: ElevationEvaluator = evalUnixElevation;\n\nif (Deno.build.os === "windows") {\n  impl = (await import("./ffi_deno.ts")).evalIsProcessElevated;\n}\n\n/** Returns whether the current Deno process is elevated. */\nexport function isElevated(cache = true): boolean {\n  return impl(cache);\n}\n`,
+    `/**
+ * Detects whether the current Deno process is running with elevated privileges.
+ *
+ * @module @neotales/is-elevated
+ */
+
+type ElevationEvaluator = (cache?: boolean) => boolean;
+
+let elevated: boolean | undefined;
+const deno = Deno as typeof Deno & { euid?: () => number };
+
+function evalUnixElevation(cache = true): boolean {
+  if (cache && elevated !== undefined) {
+    return elevated;
+  }
+  elevated = (deno.euid?.() ?? Deno.uid()) === 0;
+  return elevated;
+}
+
+let impl: ElevationEvaluator = evalUnixElevation;
+
+if (Deno.build.os === "windows") {
+  impl = (await import("./ffi_deno.ts")).evalIsProcessElevated;
+}
+
+/**
+ * Reports whether the current Deno process is running with elevated privileges.
+ *
+ * @param cache - Whether to reuse the result from the first evaluation.
+ * @returns Whether the process has elevated privileges.
+ * @example
+ * import { isElevated } from "jsr:@neotales/is-elevated";
+ *
+ * if (isElevated()) {
+ *   console.log("The process is elevated.");
+ * }
+ */
+export function isElevated(cache = true): boolean {
+  return impl(cache);
+}
+`,
   );
   await Deno.writeTextFile(
     join(destination, "mod.test.ts"),
@@ -396,11 +499,18 @@ async function writeNpmPackage(name: string, source: string, pkg: PackageJson): 
   );
   await Deno.writeTextFile(join(destination, "src", "index.ts"), isElevatedNpmIndex());
   await Deno.writeTextFile(join(destination, "src", "node.ts"), isElevatedNpmNode());
+  for (const module of ["ffi_bun", "ffi_koffi"]) {
+    const ffiPath = join(destination, "src", `${module}.ts`);
+    await Deno.writeTextFile(
+      ffiPath,
+      documentFfi(await Deno.readTextFile(ffiPath), `./${module}.js`),
+    );
+  }
   const nodeFfiPath = join(destination, "src", "ffi_node.ts");
   const nodeFfi = await Deno.readTextFile(nodeFfiPath);
   await Deno.writeTextFile(
     nodeFfiPath,
-    nodeFfi
+    documentFfi(nodeFfi, "./ffi_node.js")
       .replaceAll("parameters:", "arguments:")
       .replaceAll("result:", "return:")
       .replaceAll("advapi32.close()", "advapi32.lib.close()")
@@ -408,7 +518,7 @@ async function writeNpmPackage(name: string, source: string, pkg: PackageJson): 
   );
   await Deno.writeTextFile(
     join(destination, "src", "ffi_deno.ts"),
-    isElevatedDenoFfi("(globalThis as typeof globalThis & { Deno?: any }).Deno"),
+    isElevatedDenoFfi("(globalThis as typeof globalThis & { Deno?: any }).Deno", "./ffi_deno.js"),
   );
   const testPath = join(destination, "tests", "index.test.ts");
   const test = (await Deno.readTextFile(testPath))
@@ -439,6 +549,7 @@ test(
     join(destination, "package.json"),
     JSON.stringify(npmManifest(pkg), null, 2) + "\n",
   );
+  await Deno.writeTextFile(join(destination, ".npmignore"), npmIgnore());
   await Deno.writeTextFile(
     join(destination, "tsconfig.json"),
     JSON.stringify(npmTsConfig(), null, 2) + "\n",
@@ -449,7 +560,7 @@ test(
   );
   await Deno.writeTextFile(
     join(destination, "README.md"),
-    `${(await Deno.readTextFile(join(destination, "README.md"))).replace("## Runtime Notes", "## Elevation Detection\n\nOn Unix-like systems, elevation means an effective user ID of `0`. Node and Bun check `process.geteuid()` when available, then fall back to `process.getuid()`.\n\nOn Windows, the package opens the current process token and calls `GetTokenInformation` with `TokenElevation`. Node uses native `node:ffi` when available and otherwise optional `koffi`; Bun and Deno use native FFI. This reports the current process token directly, unlike `Shell32.IsUserAnAdmin`, which checks administrator-group membership and can disagree under User Account Control when an administrator account has a filtered token.\n\n## Runtime Notes")}\n\n## Runtime Support\n\nThis npm package supports Node, Bun, and Deno. Deno users can import it with \`npm:@neotales/${name}\`; use the JSR package for the Deno-only implementation.\n`,
+    `${(await Deno.readTextFile(join(destination, "README.md"))).replace("## Runtime Notes", "## Elevation Detection\n\nOn Unix-like systems, elevation means an effective user ID of `0`. Node and Bun check `process.geteuid()` when available, then fall back to `process.getuid()`. The result is cached so repeated checks do not need to query the runtime again.\n\nOn Windows, the package opens the current process token and calls `GetTokenInformation` with `TokenElevation`. Node uses native `node:ffi` when available and otherwise the optional `koffi` dependency; Bun and Deno use their native FFI implementations. The FFI implementations are loaded only on Windows.\n\nThis intentionally does not use `Shell32.IsUserAnAdmin`. That API checks administrator-group membership rather than the current process token, so it can disagree under User Account Control when an administrator account is running with a filtered, non-elevated token. `TokenElevation` reports the process state directly.\n\n## Runtime Notes")}\n\n## Runtime Support\n\nThis npm package supports Node, Bun, and Deno. Deno users can import it with \`npm:@neotales/${name}\`; use the JSR package for the Deno-only implementation.\n`,
   );
 }
 

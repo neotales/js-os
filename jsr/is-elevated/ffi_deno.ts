@@ -1,6 +1,24 @@
+/**
+ * Implements native Windows elevation detection for Deno.
+ *
+ * @module @neotales/is-elevated/ffi_deno
+ */
+
 let elevated: boolean | undefined;
 const deno = Deno;
 
+/**
+ * Reports whether the current process is running with elevated privileges.
+ *
+ * @param cache - Whether to reuse the result from the first evaluation.
+ * @returns Whether the process has elevated privileges.
+ * @example
+ * ```ts
+ * import { evalIsProcessElevated } from "./ffi_deno.ts";
+ *
+ * const elevated = evalIsProcessElevated();
+ * ```
+ */
 export function evalIsProcessElevated(cache = true): boolean {
   if (!cache || elevated === undefined) {
     elevated = deno.uid() === 0;

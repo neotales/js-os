@@ -2,7 +2,16 @@ import process from "node:process";
 
 let elevated: boolean | undefined;
 
-/** Detects elevation from the effective user ID, or the real user ID when unavailable. */
+/**
+ * Reports whether the current process has an effective user ID of zero.
+ *
+ * @param cache - Whether to reuse the result from the first evaluation.
+ * @returns Whether the process has an effective user ID of zero.
+ * @example
+ * import { evalIsProcessElevated } from "./node.js";
+ *
+ * const elevated = evalIsProcessElevated();
+ */
 export function evalIsProcessElevated(cache = true): boolean {
   if (cache && elevated !== undefined) {
     return elevated;

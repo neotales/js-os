@@ -1,3 +1,9 @@
+/**
+ * Detects whether the current Deno process is running with elevated privileges.
+ *
+ * @module @neotales/is-elevated
+ */
+
 type ElevationEvaluator = (cache?: boolean) => boolean;
 
 let elevated: boolean | undefined;
@@ -17,7 +23,18 @@ if (Deno.build.os === "windows") {
   impl = (await import("./ffi_deno.ts")).evalIsProcessElevated;
 }
 
-/** Returns whether the current Deno process is elevated. */
+/**
+ * Reports whether the current Deno process is running with elevated privileges.
+ *
+ * @param cache - Whether to reuse the result from the first evaluation.
+ * @returns Whether the process has elevated privileges.
+ * @example
+ * import { isElevated } from "jsr:@neotales/is-elevated";
+ *
+ * if (isElevated()) {
+ *   console.log("The process is elevated.");
+ * }
+ */
 export function isElevated(cache = true): boolean {
   return impl(cache);
 }

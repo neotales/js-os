@@ -3,6 +3,18 @@ import { dlopen, FFIType, ptr } from "bun:ffi";
 
 let elevated: boolean | undefined;
 
+/**
+ * Reports whether the current process is running with elevated privileges.
+ *
+ * @param cache - Whether to reuse the result from the first evaluation.
+ * @returns Whether the process has elevated privileges.
+ * @example
+ * ```ts
+ * import { evalIsProcessElevated } from "./ffi_bun.js";
+ *
+ * const elevated = evalIsProcessElevated();
+ * ```
+ */
 export function evalIsProcessElevated(cache = true): boolean {
   if (cache && elevated !== undefined) {
     return elevated;
@@ -30,36 +42,30 @@ export function evalIsProcessElevated(cache = true): boolean {
     GetLastError: { args: [], returns: FFIType.i32 },
   });
 
-  try {
-    const TOKEN_QUERY = 0x0008;
-    const TOKEN_ELEVATION = 20;
-    const processHandle = kernel32.symbols.GetCurrentProcess();
-    const tokenHandle = new BigUint64Array(1);
-    const tokenHandlePtr = ptr(tokenHandle);
-    const success = advapi32.symbols.OpenProcessToken(processHandle, TOKEN_QUERY, tokenHandlePtr);
-    if (!success) {
-      throw new Error("Failed to open process token");
-    }
+  const TOKEN_QUERY = 0x0008;
+  const TOKEN_ELEVATION = 20;
+  const processHandle = kernel32.symbols.GetCurrentProcess();
+  const tokenHandle = new BigUint64Array(1);
+  const tokenHandlePtr = ptr(tokenHandle);
 
-    try {
-      const tokenInfo = new Uint8Array(4);
-      const returnLength = new Uint32Array(1);
-      const result = advapi32.symbols.GetTokenInformation(
-        tokenHandle[0],
-        TOKEN_ELEVATION,
-        ptr(tokenInfo),
-        4,
-        ptr(returnLength),
-      );
-      if (!result)
-        throw new Error(`Failed to get token information ${kernel32.symbols.GetLastError()}`);
-      elevated = tokenInfo[0] !== 0;
-      return elevated;
-    } finally {
-      kernel32.symbols.CloseHandle(tokenHandlePtr);
-    }
+  const success = advapi32.symbols.OpenProcessToken(processHandle, TOKEN_QUERY, tokenHandlePtr);
+  if (!success) throw new Error("Failed to open process token");
+
+  try {
+    const tokenInfo = new Uint8Array(4);
+    const returnLength = new Uint32Array(1);
+    const result = advapi32.symbols.GetTokenInformation(
+      tokenHandle[0],
+      TOKEN_ELEVATION,
+      ptr(tokenInfo),
+      4,
+      ptr(returnLength),
+    );
+    if (!result)
+      throw new Error(`Failed to get token information ${kernel32.symbols.GetLastError()}`);
+    elevated = tokenInfo[0] !== 0;
+    return elevated;
   } finally {
-    advapi32.close();
-    kernel32.close();
+    kernel32.symbols.CloseHandle(tokenHandlePtr);
   }
 }

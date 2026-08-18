@@ -25,19 +25,34 @@ if (process.platform === "win32") {
   } else if (runtime.Bun) {
     impl = (require("./ffi_bun.js") as typeof import("./ffi_bun.js")).evalIsProcessElevated;
   } else {
-    let hasNativeFfi = false;
     try {
-      hasNativeFfi = Boolean(process.getBuiltinModule("node:ffi"));
-    } catch {
-      // Older Node versions throw for unknown built-in modules.
+      if (process.getBuiltinModule("node:ffi")) {
+        impl = (require("./ffi_node.js") as typeof import("./ffi_node.js")).evalIsProcessElevated;
+      } else {
+        impl = (require("./ffi_koffi.js") as typeof import("./ffi_koffi.js")).evalIsProcessElevated;
+      }
+    } catch (error) {
+      try {
+        impl = (require("./ffi_koffi.js") as typeof import("./ffi_koffi.js")).evalIsProcessElevated;
+      } catch {
+        if (process.env.DEBUG === "true") console.debug(error);
+      }
     }
-    impl = hasNativeFfi
-      ? (require("./ffi_node.js") as typeof import("./ffi_node.js")).evalIsProcessElevated
-      : (require("./ffi_koffi.js") as typeof import("./ffi_koffi.js")).evalIsProcessElevated;
   }
 }
 
-/** Returns whether the current process is elevated. */
+/**
+ * Reports whether the current process is running with elevated privileges.
+ *
+ * @param cache - Whether to reuse the result from the first evaluation.
+ * @returns Whether the process has elevated privileges.
+ * @example
+ * import { isElevated } from "@neotales/is-elevated";
+ *
+ * if (isElevated()) {
+ *   console.log("The process is elevated.");
+ * }
+ */
 export function isElevated(cache = true): boolean {
   return impl(cache);
 }

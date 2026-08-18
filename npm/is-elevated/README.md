@@ -58,19 +58,11 @@ if (elevated) {
 
 ## Elevation Detection
 
-On Unix-like systems, elevation means an effective user ID of `0`. Node and Bun check
-`process.geteuid()` when available, then fall back to `process.getuid()`. The result is cached so
-repeated checks do not need to query the runtime again.
+On Unix-like systems, elevation means an effective user ID of `0`. Node and Bun check `process.geteuid()` when available, then fall back to `process.getuid()`. The result is cached so repeated checks do not need to query the runtime again.
 
-On Windows, the package opens the current process token and calls `GetTokenInformation` with
-`TokenElevation`. Node uses native `node:ffi` when available and otherwise the optional `koffi`
-dependency; Bun and Deno use their native FFI implementations. The FFI libraries are opened only
-for Windows calls and are released after the token check completes.
+On Windows, the package opens the current process token and calls `GetTokenInformation` with `TokenElevation`. Node uses native `node:ffi` when available and otherwise the optional `koffi` dependency; Bun and Deno use their native FFI implementations. The FFI implementations are loaded only on Windows.
 
-This intentionally does not use `Shell32.IsUserAnAdmin`. That API checks administrator-group
-membership rather than the current process token, so it can disagree under User Account Control
-when an administrator account is running with a filtered, non-elevated token. `TokenElevation`
-reports the process state directly.
+This intentionally does not use `Shell32.IsUserAnAdmin`. That API checks administrator-group membership rather than the current process token, so it can disagree under User Account Control when an administrator account is running with a filtered, non-elevated token. `TokenElevation` reports the process state directly.
 
 ## Runtime Notes
 
