@@ -7,7 +7,6 @@
   "scripts": {
     "import": "deno task import",
     "modules": "deno task modules",
-    "normalize": "deno task normalize",
     "build": "deno task build",
     "test": "deno task test",
     "lint": "deno task lint",
@@ -15,7 +14,9 @@
     "fmt:check": "deno task fmt:check",
     "audit": "deno task audit",
     "check": "deno task check",
-    "pack": "deno task pack"
+    "pack": "deno task pack",
+    "release:prepare": "deno task release:prepare",
+    "publish:bootstrap": "deno task publish:bootstrap"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",

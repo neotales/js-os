@@ -1,6 +1,9 @@
 node_modules/
 npm/*/node_modules/
 npm/*/dist/
+npm/*/esm/
+npm/*/types/
+npm/*/.test/
 npm/*/*.tgz
 .DS_Store
 artifacts/

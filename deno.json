@@ -6,7 +6,6 @@
   "tasks": {
     "import": "deno run -A ./eng/main.ts import",
     "modules": "deno run -A ./eng/main.ts modules",
-    "normalize": "deno run -A ./eng/main.ts normalize",
     "build": "deno run -A ./eng/main.ts build",
     "test": "deno run -A ./eng/main.ts test",
     "lint": "deno run -A ./eng/main.ts lint",
@@ -14,7 +13,9 @@
     "fmt:check": "deno run -A ./eng/main.ts fmt --check",
     "audit": "deno run -A ./eng/main.ts audit",
     "check": "deno run -A ./eng/main.ts check",
-    "pack": "deno run -A ./eng/main.ts pack"
+    "pack": "deno run -A ./eng/main.ts pack",
+    "release:prepare": "deno run -A ./eng/main.ts release-prepare",
+    "publish:bootstrap": "deno run -A ./eng/main.ts publish-bootstrap"
   },
   "fmt": {
     "lineWidth": 100,
