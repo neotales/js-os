@@ -47,7 +47,7 @@ jobs:
           - runtime: bun
             node-version: 22
           - runtime: node-ffi
-            node-version: 25
+            node-version: 26
           - runtime: node-koffi
             node-version: 22
     steps:
