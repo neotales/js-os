@@ -167,7 +167,8 @@ function npmManifest(pkg: PackageJson): Record<string, unknown> {
       build: "tsc -p tsconfig.json",
       "build:test": "tsc -p tsconfig.test.json",
       test: "pnpm run build:test && node --test .test/tests/*.test.js",
-      "test:bun": "pnpm run build:test && bun test ./.test/tests/*.test.js",
+      "test:ffi": "pnpm run build:test && node --experimental-ffi --test .test/tests/*.test.js",
+      "test:bun": "pnpm run build:test && bun test ./.test/tests",
       "test:deno": "pnpm run build:test && deno test -A .test/tests",
     },
     devDependencies: {

@@ -78,9 +78,7 @@ jobs:
         run: deno task test --bun
 
       - if: matrix.runtime == 'node-ffi'
-        env:
-          NODE_OPTIONS: --experimental-ffi
-        run: deno task test --node
+        run: pnpm --dir npm/is-elevated run test:ffi
 
       - if: matrix.runtime == 'node-koffi'
         run: pnpm --dir npm/is-elevated exec node -e "require.resolve('koffi')"
