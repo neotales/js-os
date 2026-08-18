@@ -604,7 +604,7 @@ async function releasePrepare(tag: string): Promise<void> {
   );
 }
 
-async function publishNpm(args: string[], cwd: string): Promise<void> {
+async function publishNpm(args: string[], cwd: string, token?: string): Promise<void> {
   const authDir = await Deno.makeTempDir({ prefix: "neotales-npm-auth-" });
   const config = join(authDir, ".npmrc");
   await Deno.writeTextFile(config, "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\n");
@@ -612,7 +612,7 @@ async function publishNpm(args: string[], cwd: string): Promise<void> {
     const output = await new Deno.Command("pnpm", {
       args,
       cwd,
-      env: { ...Deno.env.toObject(), NPM_CONFIG_USERCONFIG: config },
+      env: { ...Deno.env.toObject(), NODE_AUTH_TOKEN: token ?? "", NPM_CONFIG_USERCONFIG: config },
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
@@ -624,8 +624,10 @@ async function publishNpm(args: string[], cwd: string): Promise<void> {
 }
 
 async function bootstrapPublish(name: string, dryRun: boolean): Promise<void> {
-  if (!dryRun && !Deno.env.get("NODE_AUTH_TOKEN")) {
-    throw new Error("NODE_AUTH_TOKEN is required for the initial npm publication.");
+  let token = Deno.env.get("NODE_AUTH_TOKEN")?.trim();
+  if (!dryRun && !token) {
+    token = prompt("npm auth token:")?.trim();
+    if (!token) throw new Error("An npm auth token is required for the initial npm publication.");
   }
   await run(oxlint, ["eng", "jsr", "npm"]);
   await format(true);
@@ -652,6 +654,7 @@ async function bootstrapPublish(name: string, dryRun: boolean): Promise<void> {
       ...(dryRun ? ["--dry-run", "--no-git-checks"] : []),
     ],
     directory,
+    token,
   );
 }
 
