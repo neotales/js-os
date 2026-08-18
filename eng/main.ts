@@ -401,6 +401,8 @@ async function writeNpmPackage(name: string, source: string, pkg: PackageJson): 
   await Deno.writeTextFile(
     nodeFfiPath,
     nodeFfi
+      .replaceAll("parameters:", "arguments:")
+      .replaceAll("result:", "return:")
       .replaceAll("advapi32.close()", "advapi32.lib.close()")
       .replaceAll("kernel32.close()", "kernel32.lib.close()"),
   );

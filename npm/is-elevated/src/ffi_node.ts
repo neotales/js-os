@@ -22,16 +22,16 @@ export function evalIsProcessElevated(cache = true): boolean {
   }
 
   const advapi32 = ffi.dlopen("Advapi32.dll", {
-    OpenProcessToken: { parameters: ["pointer", "u32", "pointer"], result: "u8" },
+    OpenProcessToken: { arguments: ["pointer", "u32", "pointer"], return: "u8" },
     GetTokenInformation: {
-      parameters: ["pointer", "u32", "pointer", "u32", "pointer"],
-      result: "u8",
+      arguments: ["pointer", "u32", "pointer", "u32", "pointer"],
+      return: "u8",
     },
   });
   const kernel32 = ffi.dlopen("Kernel32.dll", {
-    GetCurrentProcess: { parameters: [], result: "pointer" },
-    CloseHandle: { parameters: ["pointer"], result: "u8" },
-    GetLastError: { parameters: [], result: "u32" },
+    GetCurrentProcess: { arguments: [], return: "pointer" },
+    CloseHandle: { arguments: ["pointer"], return: "u8" },
+    GetLastError: { arguments: [], return: "u32" },
   });
 
   try {
