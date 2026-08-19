@@ -50,6 +50,15 @@
             "npm:typescript@^6.0.3"
           ]
         }
+      },
+      "npm/win-registry": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@types/bun@^1.3.14",
+            "npm:@types/node@^25.9.3",
+            "npm:typescript@^6.0.3"
+          ]
+        }
       }
     }
   }

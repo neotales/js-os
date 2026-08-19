@@ -7,8 +7,9 @@ const upstream = resolve(
 );
 const jsrDir = join(root, "jsr");
 const npmDir = join(root, "npm");
-const oxfmt = join(root, "node_modules", ".bin", "oxfmt");
-const oxlint = join(root, "node_modules", ".bin", "oxlint");
+const executableExtension = Deno.build.os === "windows" ? ".cmd" : "";
+const oxfmt = join(root, "node_modules", ".bin", `oxfmt${executableExtension}`);
+const oxlint = join(root, "node_modules", ".bin", `oxlint${executableExtension}`);
 
 type PackageJson = {
   name: string;
@@ -113,7 +114,10 @@ async function readPackage(directory: string): Promise<PackageJson> {
 function rebrand(content: string): string {
   return content
     .replaceAll("@neostd/", "@neotales/")
+    .replaceAll("@neostd%2F", "@neotales%2F")
+    .replaceAll("neostd-js", "neotales-js")
     .replaceAll("github.com/neostd/js", "github.com/neotales/js-os")
+    .replaceAll("badge.fury.io/gh/neostd%2Fjs", "badge.fury.io/gh/neotales%2Fjs-os")
     .replaceAll(
       "raw.githubusercontent.com/neostd/js/refs/heads/dev/eng/assets/logo.png",
       "raw.githubusercontent.com/neotales/js-std/refs/heads/dev/eng/assets/logo.png",
@@ -564,6 +568,312 @@ test(
   );
 }
 
+function winRegistryApi(source: string): string {
+  const start = source.indexOf("export class Registry {");
+  const end = source.lastIndexOf("\n}\n");
+  if (start === -1 || end < start) {
+    throw new Error("Unexpected win-registry Registry API layout.");
+  }
+
+  return `${source.slice(0, start)}
+/**
+ * Opens an existing registry key.
+ *
+ * @param path Registry path to open.
+ * @param access Requested access rights.
+ * @returns The opened registry key.
+ */
+function openRegistryKey(path: string, access?: number): Key;
+/**
+ * Opens a child key relative to an existing key.
+ *
+ * @param key Parent key.
+ * @param path Relative child path.
+ * @param access Requested access rights.
+ * @returns The opened registry key.
+ */
+function openRegistryKey(key: Key, path: string, access?: number): Key;
+function openRegistryKey(arg1: Key | string, arg2?: string | number, arg3?: number): Key {
+  if (typeof arg1 === "string") {
+    const { hkey, subKey } = parseRegistryPath(arg1);
+    const access = (arg2 as number | undefined) ?? Rights.READ;
+    return new RegistryKey(driver.openKey(hkey, subKey, access), arg1);
+  }
+
+  return arg1.openKey(arg2 as string, arg3 ?? Rights.READ);
+}
+
+/**
+ * Creates a registry key if needed and opens it.
+ *
+ * @param path Registry path to create.
+ * @param access Requested access rights.
+ * @returns The created or opened registry key.
+ */
+function createRegistryKey(path: string, access?: number): Key;
+/**
+ * Creates a child registry key relative to an existing key.
+ *
+ * @param key Parent key.
+ * @param path Relative child path.
+ * @param access Requested access rights.
+ * @returns The created or opened registry key.
+ */
+function createRegistryKey(key: Key, path: string, access?: number): Key;
+function createRegistryKey(arg1: Key | string, arg2?: string | number, arg3?: number): Key {
+  if (typeof arg1 === "string") {
+    const { hkey, subKey } = parseRegistryPath(arg1);
+    const access = (arg2 as number | undefined) ?? Rights.ALL_ACCESS;
+    const result = driver.createKey(hkey, subKey, access);
+    return new RegistryKey(result.handle, arg1, result.created);
+  }
+
+  return arg1.createKey(arg2 as string, arg3 ?? Rights.ALL_ACCESS);
+}
+
+/**
+ * Deletes a registry key.
+ *
+ * @param path Registry path to delete.
+ */
+function deleteRegistryKey(path: string): void;
+/**
+ * Deletes a child key relative to an existing key.
+ *
+ * @param key Parent key.
+ * @param path Relative child path.
+ */
+function deleteRegistryKey(key: Key, path: string): void;
+function deleteRegistryKey(arg1: Key | string, arg2?: string): void {
+  if (typeof arg1 === "string") {
+    const { hkey, subKey } = parseRegistryPath(arg1);
+    const status = Number(driver.deleteKey(hkey, subKey));
+    if (status !== 0) {
+      throw new RegistryError(
+        \`Failed to delete registry key "\${arg1}" with error code \${status}\`,
+      );
+    }
+    return;
+  }
+
+  const parent = arg1;
+  const path = arg2 as string;
+  if (!parent.deleteKey(path)) {
+    throw new RegistryError(\`Failed to delete registry key "\${path}"\`);
+  }
+}
+
+/** Windows Registry API facade. */
+export const Registry = {
+  /** Returns the predefined \`HKEY_CLASSES_ROOT\` key. */
+  get HKCR(): Key {
+    return predefinedKey(HKEY_CLASSES_ROOT, "HKEY_CLASSES_ROOT");
+  },
+  /** Returns the predefined \`HKEY_CURRENT_USER\` key. */
+  get HKCU(): Key {
+    return predefinedKey(HKEY_CURRENT_USER, "HKEY_CURRENT_USER");
+  },
+  /** Returns the predefined \`HKEY_LOCAL_MACHINE\` key. */
+  get HKLM(): Key {
+    return predefinedKey(HKEY_LOCAL_MACHINE, "HKEY_LOCAL_MACHINE");
+  },
+  /** Returns the predefined \`HKEY_USERS\` key. */
+  get HKU(): Key {
+    return predefinedKey(HKEY_USERS, "HKEY_USERS");
+  },
+  /** Returns the predefined \`HKEY_PERFORMANCE_DATA\` key. */
+  get HKPD(): Key {
+    return predefinedKey(HKEY_PERFORMANCE_DATA, "HKEY_PERFORMANCE_DATA");
+  },
+  /** Returns the predefined \`HKEY_CURRENT_CONFIG\` key. */
+  get HKCC(): Key {
+    return predefinedKey(HKEY_CURRENT_CONFIG, "HKEY_CURRENT_CONFIG");
+  },
+  openKey: openRegistryKey,
+  createKey: createRegistryKey,
+  deleteKey: deleteRegistryKey,
+} as const;
+${source.slice(end + 3)}`;
+}
+
+function winRegistryDenoRegistry(source: string): string {
+  const globals = source.indexOf("const globals =");
+  const driver = source.indexOf("let isSupported = false;");
+  const api = source.indexOf("/**\n * Returns whether a Windows Registry backend", driver);
+  if (globals === -1 || driver === -1 || api === -1) {
+    throw new Error("Unexpected win-registry source layout.");
+  }
+
+  const denoDriver = `let isSupported = Deno.build.os === "windows";
+
+let driver: RegistryBackend = {
+  openKey(_hkey: bigint, _subKey: string, _access: number): bigint {
+    RegistryError.throwUnsupported();
+  },
+  createKey(_hkey: bigint, _subKey: string, _access: number): { handle: bigint; created: boolean } {
+    RegistryError.throwUnsupported();
+  },
+  deleteKey(_hkey: bigint, _subKey: string): number {
+    RegistryError.throwUnsupported();
+  },
+  deleteValue(_hkey: bigint, _value: string): number {
+    RegistryError.throwUnsupported();
+  },
+  enumKeyNames(_hkey: bigint, _index: number, _bufSize: number): string | null {
+    RegistryError.throwUnsupported();
+  },
+  enumValueNames(_hkey: bigint, _index: number, _bufSize: number): string | null {
+    RegistryError.throwUnsupported();
+  },
+  queryValue(
+    _hkey: bigint,
+    _value: string,
+    _buffer: Uint8Array,
+  ): { bytesRead: number; type: number } | null {
+    RegistryError.throwUnsupported();
+  },
+  queryInfoKey(_hkey: bigint): {
+    subKeyCount: number;
+    maxSubKeyLength: number;
+    valueCount: number;
+    maxValueNameLength: number;
+    maxValueLength: number;
+    lastWriteTime: number;
+  } {
+    RegistryError.throwUnsupported();
+  },
+  closeKey(_hkey: bigint): void {
+    return;
+  },
+  setValue(_hkey: bigint, _value: string, _type: number, _data: Uint8Array): void {
+    RegistryError.throwUnsupported();
+  },
+};
+
+if (isSupported) {
+  driver = (await import("./ffi_deno.ts")).backend;
+}
+
+`;
+  return `${source.slice(0, globals)}${source.slice(source.indexOf("export class RegistryError", globals), driver)}${denoDriver}${source.slice(api)}`;
+}
+
+async function writeWinRegistryDenoPackage(
+  name: string,
+  source: string,
+  pkg: PackageJson,
+): Promise<void> {
+  const destination = join(jsrDir, name);
+  await Deno.mkdir(destination, { recursive: true });
+  await Deno.copyFile(join(source, "LICENSE.md"), join(destination, "LICENSE.md"));
+  const readme = rebrand(await Deno.readTextFile(join(source, "README.md"))).replace(
+    /## Runtime Notes[\s\S]*?(?=\n## License)/,
+    "## Runtime Support\n\nThis JSR package supports Deno on Windows. On other platforms, `isRegistryAvailable()` returns `false` and registry operations throw `RegistryError`. Use `npm:@neotales/win-registry` when a project needs the cross-runtime package.\n",
+  );
+  await Deno.writeTextFile(join(destination, "README.md"), `${readme}\n`);
+  await Deno.writeTextFile(
+    join(destination, "types.ts"),
+    rebrand(await Deno.readTextFile(join(source, "src", "types.ts"))),
+  );
+  await Deno.copyFile(join(source, "src", "ffi_deno.ts"), join(destination, "ffi_deno.ts"));
+  await Deno.writeTextFile(
+    join(destination, "registry.ts"),
+    winRegistryDenoRegistry(
+      winRegistryApi(await Deno.readTextFile(join(source, "src", "registry.ts"))),
+    ),
+  );
+  await Deno.writeTextFile(
+    join(destination, "mod.ts"),
+    rebrand(await Deno.readTextFile(join(source, "src", "index.ts"))),
+  );
+  await Deno.writeTextFile(
+    join(destination, "mod.test.ts"),
+    `import { Registry, RegistryError, isRegistryAvailable } from "./mod.ts";
+import { stringToWide, wideToString } from "./types.ts";
+
+Deno.test("registry availability matches the platform", () => {
+  if (isRegistryAvailable() !== (Deno.build.os === "windows")) {
+    throw new Error("Unexpected registry availability");
+  }
+});
+
+Deno.test("registry string conversion roundtrips", () => {
+  if (wideToString(stringToWide("registry")) !== "registry") {
+    throw new Error("Unexpected string conversion");
+  }
+});
+
+Deno.test("registry is unavailable outside Windows", { ignore: Deno.build.os === "windows" }, () => {
+  try {
+    Registry.openKey("HKCU\\\\Software");
+  } catch (error) {
+    if (error instanceof RegistryError) return;
+    throw error;
+  }
+  throw new Error("Expected RegistryError");
+});
+
+Deno.test("registry reads Windows version values", { ignore: Deno.build.os !== "windows" }, () => {
+  using key = Registry.openKey("HKLM\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion");
+  if (!key.getString("ProductName")) throw new Error("Expected Windows product name");
+});
+`,
+  );
+  await Deno.writeTextFile(
+    join(destination, "deno.json"),
+    JSON.stringify(
+      {
+        name: pkg.name.replace("@neostd/", "@neotales/"),
+        version: pkg.version,
+        description: `${pkg.description} Deno on Windows only.`,
+        license: pkg.license,
+        exports: { ".": "./mod.ts", "./registry": "./registry.ts", "./types": "./types.ts" },
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+}
+
+async function writeWinRegistryNpmPackage(
+  name: string,
+  source: string,
+  pkg: PackageJson,
+): Promise<void> {
+  const destination = join(npmDir, name);
+  await copy(source, destination, { overwrite: false });
+  for (const file of ["package.json", "vite.config.ts", "tsconfig.json", "esm"]) {
+    await Deno.remove(join(destination, file), { recursive: true }).catch((error: unknown) => {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    });
+  }
+  await rewriteTree(destination, /\.(?:ts|md)$/, (content) =>
+    rebrand(content).replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
+  );
+  const registryPath = join(destination, "src", "registry.ts");
+  await Deno.writeTextFile(registryPath, winRegistryApi(await Deno.readTextFile(registryPath)));
+  const nodeFfiPath = join(destination, "src", "ffi_node.ts");
+  await Deno.writeTextFile(
+    nodeFfiPath,
+    (await Deno.readTextFile(nodeFfiPath))
+      .replaceAll("parameters:", "arguments:")
+      .replaceAll("result:", "return:"),
+  );
+  await Deno.writeTextFile(
+    join(destination, "package.json"),
+    JSON.stringify(npmManifest(pkg), null, 2) + "\n",
+  );
+  await Deno.writeTextFile(join(destination, ".npmignore"), npmIgnore());
+  await Deno.writeTextFile(
+    join(destination, "tsconfig.json"),
+    JSON.stringify(npmTsConfig(), null, 2) + "\n",
+  );
+  await Deno.writeTextFile(
+    join(destination, "tsconfig.test.json"),
+    JSON.stringify(npmTestTsConfig(), null, 2) + "\n",
+  );
+}
+
 async function upstreamModules(): Promise<string[]> {
   const modules: string[] = [];
   for await (const entry of Deno.readDir(upstream)) {
@@ -583,9 +893,9 @@ async function importedModules(): Promise<string[]> {
 }
 
 async function importModule(name: string, replace: boolean): Promise<void> {
-  if (name !== "is-elevated") {
+  if (name !== "is-elevated" && name !== "win-registry") {
     throw new Error(
-      `The Deno-only migration is defined for is-elevated only; review it before importing ${name}.`,
+      `The Deno-only migration is defined for is-elevated and win-registry only; review it before importing ${name}.`,
     );
   }
   const source = join(upstream, name);
@@ -600,8 +910,13 @@ async function importModule(name: string, replace: boolean): Promise<void> {
     await Deno.remove(npmPackage, { recursive: true });
   }
   const pkg = await readPackage(source);
-  await writeDenoPackage(name, source, pkg);
-  await writeNpmPackage(name, source, pkg);
+  if (name === "is-elevated") {
+    await writeDenoPackage(name, source, pkg);
+    await writeNpmPackage(name, source, pkg);
+  } else {
+    await writeWinRegistryDenoPackage(name, source, pkg);
+    await writeWinRegistryNpmPackage(name, source, pkg);
+  }
   await run(oxfmt, ["--write", jsrPackage, npmPackage]);
   console.log(`Imported split Deno and npm packages for ${name}.`);
 }

@@ -1,0 +1,11 @@
+{
+  "name": "@neotales/win-registry",
+  "version": "0.0.0-alpha.0",
+  "description": "Cross-runtime Windows Registry API using runtime-specific FFI backends. Deno on Windows only.",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts",
+    "./registry": "./registry.ts",
+    "./types": "./types.ts"
+  }
+}
