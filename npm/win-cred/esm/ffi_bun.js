@@ -35,19 +35,19 @@ function readWideString(intPtr) {
     }
     return String.fromCharCode(...chars);
 }
-function readBytes(ptr, length) {
-    if (ptr === 0 || length === 0)
+function readBytes(pointer, length) {
+    if (pointer === 0 || length === 0)
         return new Uint8Array(0);
-    return new Uint8Array(toArrayBuffer(ptr, 0, length));
+    return new Uint8Array(toArrayBuffer(pointer, 0, length));
 }
-function readU32At(ptr, offset) {
-    return read.u32(ptr, offset);
+function readU32At(pointer, offset) {
+    return read.u32(pointer, offset);
 }
-function readPtrAt(ptr, offset) {
-    return Number(read.ptr(ptr, offset));
+function readPtrAt(pointer, offset) {
+    return Number(read.ptr(pointer, offset));
 }
-function readU64At(ptr, offset) {
-    return read.u64(ptr, offset);
+function readU64At(pointer, offset) {
+    return read.u64(pointer, offset);
 }
 function parseCredential(credPtr) {
     const blobSize = readU32At(credPtr, OFF_BLOB_SIZE);

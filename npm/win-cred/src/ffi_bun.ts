@@ -35,18 +35,18 @@ function readWideString(intPtr: number): string {
   }
   return String.fromCharCode(...chars);
 }
-function readBytes(ptr: number, length: number): Uint8Array {
-  if (ptr === 0 || length === 0) return new Uint8Array(0);
-  return new Uint8Array(toArrayBuffer(ptr as Pointer, 0, length));
+function readBytes(pointer: number, length: number): Uint8Array {
+  if (pointer === 0 || length === 0) return new Uint8Array(0);
+  return new Uint8Array(toArrayBuffer(pointer as Pointer, 0, length));
 }
-function readU32At(ptr: number, offset: number): number {
-  return read.u32(ptr as Pointer, offset);
+function readU32At(pointer: number, offset: number): number {
+  return read.u32(pointer as Pointer, offset);
 }
-function readPtrAt(ptr: number, offset: number): number {
-  return Number(read.ptr(ptr as Pointer, offset));
+function readPtrAt(pointer: number, offset: number): number {
+  return Number(read.ptr(pointer as Pointer, offset));
 }
-function readU64At(ptr: number, offset: number): bigint {
-  return read.u64(ptr as Pointer, offset);
+function readU64At(pointer: number, offset: number): bigint {
+  return read.u64(pointer as Pointer, offset);
 }
 function parseCredential(credPtr: number): RawCredential {
   const blobSize = readU32At(credPtr, OFF_BLOB_SIZE);

@@ -1,9 +1,9 @@
 import type { CredentialBackend, RawCredential } from "./types.ts";
 import { stringToWide } from "./types.ts";
 
-const Deno_ = (globalThis as typeof globalThis & { Deno?: any }).Deno;
+const deno = (globalThis as typeof globalThis & { Deno?: any }).Deno;
 
-const lib = Deno_.dlopen("advapi32.dll", {
+const lib = deno.dlopen("advapi32.dll", {
   CredWriteW: { parameters: ["buffer", "u32"], result: "i32" },
   CredReadW: { parameters: ["buffer", "u32", "u32", "buffer"], result: "i32" },
   CredDeleteW: { parameters: ["buffer", "u32", "u32"], result: "i32" },
@@ -11,7 +11,7 @@ const lib = Deno_.dlopen("advapi32.dll", {
   CredFree: { parameters: ["pointer"], result: "void" },
 } as const);
 
-const kernel32 = Deno_.dlopen("kernel32.dll", {
+const kernel32 = deno.dlopen("kernel32.dll", {
   GetLastError: { parameters: [], result: "u32" },
 } as const);
 const { symbols } = lib;
@@ -41,7 +41,7 @@ function readPointer(view: DataView, offset: number): bigint {
 }
 function readWideString(ptr: bigint): string {
   if (ptr === 0n) return "";
-  const view = new Deno_.UnsafePointerView(Deno_.UnsafePointer.create(ptr));
+  const view = new deno.UnsafePointerView(deno.UnsafePointer.create(ptr));
   const chars: number[] = [];
   for (let i = 0; ; i += 2) {
     const lo = view.getUint8(i);
@@ -53,7 +53,7 @@ function readWideString(ptr: bigint): string {
 }
 function readBytes(ptr: bigint, length: number): Uint8Array {
   if (ptr === 0n || length === 0) return new Uint8Array(0);
-  const view = new Deno_.UnsafePointerView(Deno_.UnsafePointer.create(ptr));
+  const view = new deno.UnsafePointerView(deno.UnsafePointer.create(ptr));
   const buf = new Uint8Array(length);
   for (let i = 0; i < length; i++) buf[i] = view.getUint8(i);
   return buf;
@@ -87,14 +87,14 @@ function buildCredentialBuffer(cred: RawCredential): { structBuf: Uint8Array; re
   refs.push(wTarget);
   view.setBigUint64(
     OFF_TARGET_NAME,
-    BigInt(Deno_.UnsafePointer.value(Deno_.UnsafePointer.of(wTarget))),
+    BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(wTarget))),
     true,
   );
   const wComment = stringToWide(cred.comment);
   refs.push(wComment);
   view.setBigUint64(
     OFF_COMMENT,
-    BigInt(Deno_.UnsafePointer.value(Deno_.UnsafePointer.of(wComment))),
+    BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(wComment))),
     true,
   );
   view.setBigUint64(OFF_LAST_WRITTEN, cred.lastWritten, true);
@@ -104,7 +104,7 @@ function buildCredentialBuffer(cred: RawCredential): { structBuf: Uint8Array; re
   if (blob.length > 0)
     view.setBigUint64(
       OFF_BLOB,
-      BigInt(Deno_.UnsafePointer.value(Deno_.UnsafePointer.of(blob))),
+      BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(blob))),
       true,
     );
   view.setUint32(OFF_PERSIST, cred.persist, true);
@@ -114,7 +114,7 @@ function buildCredentialBuffer(cred: RawCredential): { structBuf: Uint8Array; re
   if (cred.targetAlias)
     view.setBigUint64(
       OFF_TARGET_ALIAS,
-      BigInt(Deno_.UnsafePointer.value(Deno_.UnsafePointer.of(wAlias))),
+      BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(wAlias))),
       true,
     );
   const wUser = stringToWide(cred.userName);
@@ -122,7 +122,7 @@ function buildCredentialBuffer(cred: RawCredential): { structBuf: Uint8Array; re
   if (cred.userName)
     view.setBigUint64(
       OFF_USER_NAME,
-      BigInt(Deno_.UnsafePointer.value(Deno_.UnsafePointer.of(wUser))),
+      BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(wUser))),
       true,
     );
   return { structBuf: buf, refs };
@@ -143,7 +143,7 @@ export const backend: CredentialBackend = {
     try {
       return parseCredential(credPtr);
     } finally {
-      symbols.CredFree(Deno_.UnsafePointer.create(credPtr));
+      symbols.CredFree(deno.UnsafePointer.create(credPtr));
     }
   },
   delete(targetName: string, type: number): boolean {
@@ -154,7 +154,7 @@ export const backend: CredentialBackend = {
     const countBuf = new Uint8Array(4);
     const credsBuf = new Uint8Array(8);
     const ok = symbols.CredEnumerateW(
-      filter !== null ? Deno_.UnsafePointer.of(stringToWide(filter)) : null,
+      filter !== null ? deno.UnsafePointer.of(stringToWide(filter)) : null,
       flags,
       countBuf,
       credsBuf,
@@ -164,14 +164,14 @@ export const backend: CredentialBackend = {
     const arrayPtr = new DataView(credsBuf.buffer).getBigUint64(0, true);
     const results: RawCredential[] = [];
     try {
-      const ptrArrayView = new Deno_.UnsafePointerView(Deno_.UnsafePointer.create(arrayPtr));
+      const ptrArrayView = new deno.UnsafePointerView(deno.UnsafePointer.create(arrayPtr));
       for (let i = 0; i < count; i++) {
         const credPtrBuf = new Uint8Array(8);
         for (let b = 0; b < 8; b++) credPtrBuf[b] = ptrArrayView.getUint8(i * 8 + b);
         results.push(parseCredential(new DataView(credPtrBuf.buffer).getBigUint64(0, true)));
       }
     } finally {
-      symbols.CredFree(Deno_.UnsafePointer.create(arrayPtr));
+      symbols.CredFree(deno.UnsafePointer.create(arrayPtr));
     }
     return results;
   },

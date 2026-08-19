@@ -1098,6 +1098,20 @@ function winCredDenoCredential(source: string): string {
 ${source.slice(api)}`;
 }
 
+function winCredFfi(source: string): string {
+  return source
+    .replaceAll("Deno_", "deno")
+    .replaceAll("function readBytes(ptr: number", "function readBytes(pointer: number")
+    .replaceAll("if (ptr === 0 || length === 0)", "if (pointer === 0 || length === 0)")
+    .replaceAll("toArrayBuffer(ptr as Pointer", "toArrayBuffer(pointer as Pointer")
+    .replaceAll("function readU32At(ptr: number", "function readU32At(pointer: number")
+    .replaceAll("read.u32(ptr as Pointer", "read.u32(pointer as Pointer")
+    .replaceAll("function readPtrAt(ptr: number", "function readPtrAt(pointer: number")
+    .replaceAll("read.ptr(ptr as Pointer", "read.ptr(pointer as Pointer")
+    .replaceAll("function readU64At(ptr: number", "function readU64At(pointer: number")
+    .replaceAll("read.u64(ptr as Pointer", "read.u64(pointer as Pointer");
+}
+
 async function writeWinCredDenoPackage(
   name: string,
   source: string,
@@ -1117,7 +1131,10 @@ async function writeWinCredDenoPackage(
     );
   await Deno.writeTextFile(join(destination, "README.md"), `${readme}\n`);
   await Deno.copyFile(join(source, "src", "types.ts"), join(destination, "types.ts"));
-  await Deno.copyFile(join(source, "src", "ffi_deno.ts"), join(destination, "ffi_deno.ts"));
+  await Deno.writeTextFile(
+    join(destination, "ffi_deno.ts"),
+    winCredFfi(await Deno.readTextFile(join(source, "src", "ffi_deno.ts"))),
+  );
   await Deno.writeTextFile(
     join(destination, "credential.ts"),
     winCredDenoCredential(await Deno.readTextFile(join(source, "src", "credential.ts"))),
@@ -1172,6 +1189,10 @@ async function writeWinCredNpmPackage(
   await rewriteTree(destination, /\.(?:ts|md)$/, (content) =>
     rebrand(content).replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
   );
+  for (const module of ["ffi_bun", "ffi_deno", "ffi_koffi", "ffi_node"]) {
+    const ffiPath = join(destination, "src", `${module}.ts`);
+    await Deno.writeTextFile(ffiPath, winCredFfi(await Deno.readTextFile(ffiPath)));
+  }
   const testPath = join(destination, "tests", "index.test.ts");
   await Deno.writeTextFile(
     testPath,
