@@ -1078,6 +1078,140 @@ test("win-registry::Registry preserves values larger than 4 KiB", { skip: !WINDO
   await Deno.writeTextFile(join(destination, "README.md"), `${npmReadme}\n`);
 }
 
+function winCredDenoCredential(source: string): string {
+  const globals = source.indexOf("const globals =");
+  const supported = source.indexOf("let isSupported = false;");
+  const runtime = source.indexOf("if (globals.process?.platform", supported);
+  const api = source.indexOf("function rawToCredential", runtime);
+  if (globals === -1 || supported === -1 || runtime === -1 || api === -1) {
+    throw new Error("Unexpected win-cred source layout.");
+  }
+  return `${source.slice(0, globals)}${source.slice(supported, runtime)}if (Deno.build.os === "windows") {
+  try {
+    driver = (await import("./ffi_deno.ts")).backend;
+    isSupported = true;
+  } catch {
+    // Deno requires --allow-ffi and a loadable Windows backend.
+  }
+}
+
+${source.slice(api)}`;
+}
+
+async function writeWinCredDenoPackage(
+  name: string,
+  source: string,
+  pkg: PackageJson,
+): Promise<void> {
+  const destination = join(jsrDir, name);
+  await Deno.mkdir(destination, { recursive: true });
+  await Deno.copyFile(join(source, "LICENSE.md"), join(destination, "LICENSE.md"));
+  const readme = rebrand(await Deno.readTextFile(join(source, "README.md")))
+    .replace(
+      /## Installation[\s\S]*?(?=\n## Usage)/,
+      '## Installation\n\n```sh\ndeno add jsr:@neotales/win-cred\n```\n\n```ts\nimport { readSecret, saveCredential } from "jsr:@neotales/win-cred";\n```\n',
+    )
+    .replace(
+      /## Runtime Notes[\s\S]*?(?=\n## License)/,
+      "## Runtime Support\n\nThis JSR package supports Deno on Windows. Run Deno with `--allow-ffi`; when permission is absent or the backend cannot load, `isAvailable()` returns `false`. Use `npm:@neotales/win-cred` for the cross-runtime package.\n\nCredential writes require an interactive Windows logon session. OpenSSH sessions can fail with Win32 error `1312` (`ERROR_NO_SUCH_LOGON_SESSION`) because Credential Manager has no available logon session; validate write operations from an interactive RDP or console session.\n",
+    );
+  await Deno.writeTextFile(join(destination, "README.md"), `${readme}\n`);
+  await Deno.copyFile(join(source, "src", "types.ts"), join(destination, "types.ts"));
+  await Deno.copyFile(join(source, "src", "ffi_deno.ts"), join(destination, "ffi_deno.ts"));
+  await Deno.writeTextFile(
+    join(destination, "credential.ts"),
+    winCredDenoCredential(await Deno.readTextFile(join(source, "src", "credential.ts"))),
+  );
+  await Deno.writeTextFile(
+    join(destination, "mod.ts"),
+    rebrand(await Deno.readTextFile(join(source, "src", "index.ts"))),
+  );
+  await Deno.writeTextFile(
+    join(destination, "mod.test.ts"),
+    `import { decodeSecret, encodeSecret, isAvailable, listCredentials } from "./mod.ts";
+
+Deno.test("credential availability matches the platform", () => {
+  if (isAvailable() !== (Deno.build.os === "windows")) throw new Error("Unexpected availability");
+});
+
+Deno.test("credential secret encoding roundtrips", () => {
+  if (decodeSecret(encodeSecret("secret")) !== "secret") throw new Error("Unexpected secret");
+});
+
+Deno.test("credential listing is safe on Windows", { ignore: Deno.build.os !== "windows" }, () => {
+  if (!Array.isArray(listCredentials())) throw new Error("Expected credentials");
+});
+`,
+  );
+  await Deno.writeTextFile(
+    join(destination, "deno.json"),
+    JSON.stringify(
+      {
+        name: pkg.name.replace("@neostd/", "@neotales/"),
+        version: pkg.version,
+        description: `${pkg.description} Deno on Windows only.`,
+        license: pkg.license,
+        exports: { ".": "./mod.ts", "./credential": "./credential.ts", "./types": "./types.ts" },
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+}
+
+async function writeWinCredNpmPackage(
+  name: string,
+  source: string,
+  pkg: PackageJson,
+): Promise<void> {
+  const destination = join(npmDir, name);
+  await copy(source, destination, { overwrite: false });
+  for (const file of ["package.json", "vite.config.ts", "tsconfig.json", "esm"]) {
+    await Deno.remove(join(destination, file), { recursive: true }).catch(() => undefined);
+  }
+  await rewriteTree(destination, /\.(?:ts|md)$/, (content) =>
+    rebrand(content).replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
+  );
+  const testPath = join(destination, "tests", "index.test.ts");
+  await Deno.writeTextFile(
+    testPath,
+    (await Deno.readTextFile(testPath))
+      .replace(
+        'const TEST_TARGET = "neotales-js-test-credential";',
+        'const TEST_TARGET = "neotales-js-test-credential";\nconst CREDENTIAL_MANAGER_MUTATIONS = DANGEROUS_MUTATIONS && !process.env.SSH_CONNECTION;',
+      )
+      .replaceAll("!WINDOWS || !DANGEROUS_MUTATIONS", "!WINDOWS || !CREDENTIAL_MANAGER_MUTATIONS"),
+  );
+  const nodeFfi = join(destination, "src", "ffi_node.ts");
+  await Deno.writeTextFile(
+    nodeFfi,
+    (await Deno.readTextFile(nodeFfi))
+      .replaceAll("parameters:", "arguments:")
+      .replaceAll("result:", "return:"),
+  );
+  const readmePath = join(destination, "README.md");
+  await Deno.writeTextFile(
+    readmePath,
+    (await Deno.readTextFile(readmePath)).replace(
+      "Node.js uses either `node:ffi` or the optional `koffi` peer dependency. Bun and Deno use their native FFI support.",
+      "Node.js uses either `node:ffi` or optional `koffi`; Bun and Deno use native FFI. Credential writes require an interactive Windows logon session. OpenSSH sessions can fail with Win32 error `1312` (`ERROR_NO_SUCH_LOGON_SESSION`); validate writes from an interactive RDP or console session.",
+    ),
+  );
+  await Deno.writeTextFile(
+    join(destination, "package.json"),
+    JSON.stringify(npmManifest(pkg), null, 2) + "\n",
+  );
+  await Deno.writeTextFile(join(destination, ".npmignore"), npmIgnore());
+  await Deno.writeTextFile(
+    join(destination, "tsconfig.json"),
+    JSON.stringify(npmTsConfig(), null, 2) + "\n",
+  );
+  await Deno.writeTextFile(
+    join(destination, "tsconfig.test.json"),
+    JSON.stringify(npmTestTsConfig(), null, 2) + "\n",
+  );
+}
+
 async function upstreamModules(): Promise<string[]> {
   const modules: string[] = [];
   for await (const entry of Deno.readDir(upstream)) {
@@ -1097,9 +1231,9 @@ async function importedModules(): Promise<string[]> {
 }
 
 async function importModule(name: string, replace: boolean): Promise<void> {
-  if (name !== "is-elevated" && name !== "win-registry") {
+  if (name !== "is-elevated" && name !== "win-registry" && name !== "win-cred") {
     throw new Error(
-      `The Deno-only migration is defined for is-elevated and win-registry only; review it before importing ${name}.`,
+      `The Deno-only migration is defined for is-elevated, win-registry, and win-cred only; review it before importing ${name}.`,
     );
   }
   const source = join(upstream, name);
@@ -1117,9 +1251,12 @@ async function importModule(name: string, replace: boolean): Promise<void> {
   if (name === "is-elevated") {
     await writeDenoPackage(name, source, pkg);
     await writeNpmPackage(name, source, pkg);
-  } else {
+  } else if (name === "win-registry") {
     await writeWinRegistryDenoPackage(name, source, pkg);
     await writeWinRegistryNpmPackage(name, source, pkg);
+  } else {
+    await writeWinCredDenoPackage(name, source, pkg);
+    await writeWinCredNpmPackage(name, source, pkg);
   }
   await run(oxfmt, ["--write", jsrPackage, npmPackage]);
   console.log(`Imported split Deno and npm packages for ${name}.`);

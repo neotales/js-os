@@ -1,0 +1,11 @@
+{
+  "name": "@neotales/win-cred",
+  "version": "0.0.0-alpha.0",
+  "description": "Windows Credential Manager access using runtime-specific FFI backends. Deno on Windows only.",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts",
+    "./credential": "./credential.ts",
+    "./types": "./types.ts"
+  }
+}
