@@ -150,6 +150,7 @@ test(
       k.deleteValue("TestString");
       throws(() => k.getString("TestString"));
     } finally {
+      k.close();
       Registry.deleteKey(TEST_KEY);
     }
   },
@@ -168,7 +169,35 @@ test(
       const child = root.openKey("Software\\neotales-js-test-registry-relative");
       equal(child.getString("Relative"), "value");
     } finally {
+      created.close();
       Registry.deleteKey("HKCU\\Software\\neotales-js-test-registry-relative");
+    }
+  },
+);
+
+test(
+  "win-registry::Registry preserves values larger than 4 KiB",
+  { skip: !WINDOWS || !DANGEROUS_MUTATIONS },
+  () => {
+    if (!WINDOWS || !DANGEROUS_MUTATIONS) return;
+
+    const key = Registry.createKey(TEST_KEY);
+    try {
+      const binary = Uint8Array.from({ length: 8192 }, (_, index) => index % 256);
+      const string = "registry-value-".repeat(512);
+      const multi = ["first-".repeat(512), "second-".repeat(512)];
+
+      key.setBinary("LargeBinary", binary);
+      key.setString("LargeString", string);
+      key.setMultiString("LargeMulti", multi);
+
+      equal(key.getBinary("LargeBinary").length, binary.length);
+      equal(key.getBinary("LargeBinary")[8191], binary[8191]);
+      equal(key.getString("LargeString"), string);
+      equal(key.getMultiString("LargeMulti")[1], multi[1]);
+    } finally {
+      key.close();
+      Registry.deleteKey(TEST_KEY);
     }
   },
 );

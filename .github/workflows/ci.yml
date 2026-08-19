@@ -32,6 +32,8 @@ jobs:
       - run: deno task fmt:check
       - run: deno task lint
       - run: deno task audit
+      - run: deno publish --dry-run
+        working-directory: jsr/win-registry
 
   test:
     name: ${{ matrix.os }} / ${{ matrix.runtime }}
@@ -79,6 +81,9 @@ jobs:
 
       - if: matrix.runtime == 'node-ffi'
         run: pnpm --dir npm/is-elevated run test:ffi
+
+      - if: matrix.runtime == 'node-ffi'
+        run: pnpm --dir npm/win-registry run test:ffi
 
       - if: matrix.runtime == 'node-koffi'
         run: pnpm --dir npm/is-elevated exec node -e "require.resolve('koffi')"

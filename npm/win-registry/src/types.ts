@@ -21,7 +21,12 @@ export const Rights = {
 /** Alias of `Rights.READ` for callers that prefer an execute-style name. */
 export const EXECUTE = Rights.READ;
 
-/** Windows Registry value types. */
+/**
+ * Windows Registry value-type constants used by `getValue()` and `setValue()`.
+ *
+ * @example
+ * key.setValue("Flag", new Uint8Array([1, 0, 0, 0]), Types.DWORD);
+ */
 export const Types = {
   NONE: 0,
   SZ: 1,
@@ -37,7 +42,13 @@ export const Types = {
   QWORD: 11,
 } as const;
 
-/** Summary information about a registry key. */
+/**
+ * Summary information about a registry key.
+ *
+ * @example
+ * const info = key.stat();
+ * console.log(info.subKeyCount, info.valueCount);
+ */
 export interface KeyInfo {
   subKeyCount: number;
   maxSubKeyLength: number;
@@ -47,7 +58,14 @@ export interface KeyInfo {
   lastWriteTime?: number;
 }
 
-/** Public registry key contract used by `Registry` and `RegistryKey`. */
+/**
+ * Public registry key contract used by `Registry` and `RegistryKey`. Opened and created keys own a native handle.
+ *
+ * @example
+ * using key = Registry.createKey("HKCU\\Software\\Example");
+ * key.setString("Theme", "dark");
+ * console.log(key.getString("Theme"));
+ */
 export interface Key {
   isNull(): boolean;
   unwrap(): unknown;
@@ -100,6 +118,8 @@ export const ERROR_NO_MORE_ITEMS = 259;
  *
  * @param str String to encode.
  * @returns A UTF-16LE buffer with a trailing null terminator.
+ * @example
+ * const data = stringToWide("Theme");
  */
 export function stringToWide(str: string): Uint8Array {
   const buf = new Uint8Array((str.length + 1) * 2);
@@ -117,6 +137,8 @@ export function stringToWide(str: string): Uint8Array {
  * @param buffer The UTF-16LE buffer.
  * @param byteLength Optional byte length to decode.
  * @returns The decoded string up to the first null terminator.
+ * @example
+ * const value = wideToString(stringToWide("Theme"));
  */
 export function wideToString(buffer: Uint8Array, byteLength?: number): string {
   const len = byteLength ?? buffer.length;
@@ -137,6 +159,8 @@ export function wideToString(buffer: Uint8Array, byteLength?: number): string {
  * @param buffer The UTF-16LE buffer.
  * @param byteLength Optional byte length to decode.
  * @returns The decoded string list.
+ * @example
+ * const values = wideToMultiString(multiStringToWide(["one", "two"]));
  */
 export function wideToMultiString(buffer: Uint8Array, byteLength?: number): string[] {
   const result: string[] = [];
@@ -161,6 +185,8 @@ export function wideToMultiString(buffer: Uint8Array, byteLength?: number): stri
  *
  * @param arr Strings to encode.
  * @returns The encoded multi-string buffer.
+ * @example
+ * const data = multiStringToWide(["one", "two"]);
  */
 export function multiStringToWide(arr: string[]): Uint8Array {
   if (arr.length === 0) {
@@ -236,7 +262,12 @@ export function parseRegistryPath(path: string): { hkey: bigint; subKey: string 
   }
 }
 
-/** Internal backend contract implemented by runtime-specific FFI layers. */
+/**
+ * Advanced backend contract implemented by runtime-specific FFI layers. Most applications should use `Registry`.
+ *
+ * @example
+ * const supported = isRegistryAvailable();
+ */
 export interface RegistryBackend {
   openKey(hkey: bigint, subKey: string, access: number): bigint;
   createKey(hkey: bigint, subKey: string, access: number): { handle: bigint; created: boolean };
@@ -253,10 +284,6 @@ export interface RegistryBackend {
   };
   enumKeyNames(hkey: bigint, index: number, nameBufferSize: number): string | null;
   enumValueNames(hkey: bigint, index: number, nameBufferSize: number): string | null;
-  queryValue(
-    hkey: bigint,
-    valueName: string,
-    buffer: Uint8Array,
-  ): { type: number; bytesRead: number } | null;
+  queryValue(hkey: bigint, valueName: string): { type: number; data: Uint8Array } | null;
   setValue(hkey: bigint, valueName: string, type: number, data: Uint8Array): void;
 }

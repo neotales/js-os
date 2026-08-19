@@ -19,16 +19,15 @@ A list of other modules can be found at [github.com/neotales/js-os](https://gith
 
 ## Installation
 
-```bash
-# Deno
-deno add jsr:@neotales/win-registry
-
-# npm from jsr
-npx jsr add @neotales/win-registry
-
-# from npmjs.org
-npm install @neotales/win-registry
+```sh
+pnpm add @neotales/win-registry
 ```
+
+```ts
+import { Registry } from "@neotales/win-registry";
+```
+
+Deno projects that need the npm package can use `deno add npm:@neotales/win-registry` and import from `npm:@neotales/win-registry`.
 
 ## Usage
 
@@ -147,11 +146,29 @@ parsed.subKey; // "Software\\MyApp"
 key.getSubKeyNames();
 ```
 
-## Runtime Notes
+## Runtime Support
 
-This package is Windows-specific. On non-Windows runtimes `isRegistryAvailable()` returns `false` and registry operations throw `RegistryError`.
+This ESM-only npm package supports Node, Bun, and Deno on Windows. Node uses native `node:ffi` when enabled by the current Node release, otherwise it falls back to the optional `koffi` dependency. Bun uses native FFI. Deno requires `--allow-ffi`; when its backend cannot load, `isRegistryAvailable()` returns `false`.
 
-Node.js uses either `node:ffi` or the optional `koffi` peer dependency. Bun and Deno use their native FFI support.
+## Resource Management
+
+Every key returned by `Registry.openKey()` or `Registry.createKey()` owns a Windows registry handle. Prefer `using` so the handle closes at the end of its lexical scope, even when an operation throws. Predefined root keys such as `Registry.HKCU` do not need closing.
+
+```ts
+using key = Registry.openKey("HKCU\\Software");
+console.log(key.getValueNames());
+```
+
+When `using` is unavailable, close the key in `finally`:
+
+```ts
+const key = Registry.openKey("HKCU\\Software");
+try {
+  console.log(key.getValueNames());
+} finally {
+  key.close();
+}
+```
 
 ## License
 

@@ -663,8 +663,20 @@ function deleteRegistryKey(arg1: Key | string, arg2?: string): void {
   }
 }
 
+type RegistryApi = {
+  readonly HKCR: Key;
+  readonly HKCU: Key;
+  readonly HKLM: Key;
+  readonly HKU: Key;
+  readonly HKPD: Key;
+  readonly HKCC: Key;
+  openKey: typeof openRegistryKey;
+  createKey: typeof createRegistryKey;
+  deleteKey: typeof deleteRegistryKey;
+};
+
 /** Windows Registry API facade. */
-export const Registry = {
+export const Registry: RegistryApi = {
   /** Returns the predefined \`HKEY_CLASSES_ROOT\` key. */
   get HKCR(): Key {
     return predefinedKey(HKEY_CLASSES_ROOT, "HKEY_CLASSES_ROOT");
@@ -696,6 +708,96 @@ export const Registry = {
 ${source.slice(end + 3)}`;
 }
 
+function winRegistryValueHandling(source: string): string {
+  return source
+    .replace(
+      'const buf = buffer ?? new Uint8Array(4096);\n    const result = driver.queryValue(this.#handle, name, buf);\n    if (!result) {\n      throw new RegistryError(`Registry value "${name}" not found under "${this.#path}".`);\n    }\n\n    return { data: buf.subarray(0, result.bytesRead), type: result.type };',
+      'const result = driver.queryValue(this.#handle, name);\n    if (!result) {\n      throw new RegistryError(`Registry value "${name}" not found under "${this.#path}".`);\n    }\n\n    if (buffer && buffer.length >= result.data.length) {\n      buffer.set(result.data);\n      return { data: buffer.subarray(0, result.data.length), type: result.type };\n    }\n\n    return result;',
+    )
+    .replace(
+      "queryValue(\n    hkey: bigint,\n    valueName: string,\n    buffer: Uint8Array,\n  ): { type: number; bytesRead: number } | null;",
+      "queryValue(hkey: bigint, valueName: string): { type: number; data: Uint8Array } | null;",
+    )
+    .replace(
+      "queryValue(\n    _hkey: bigint,\n    _value: string,\n    _buffer: Uint8Array,\n  ): { bytesRead: number; type: number } | null {",
+      "queryValue(_hkey: bigint, _value: string): { data: Uint8Array; type: number } | null {",
+    );
+}
+
+function winRegistryDocumentation(source: string): string {
+  return source
+    .replace(
+      "/** Windows Registry value access rights. */\nexport const Rights",
+      '/**\n * Windows Registry access rights. Prefer the least-privileged mask that supports the operation.\n *\n * @example\n * using key = Registry.openKey("HKCU\\\\Software", Rights.READ);\n */\nexport const Rights',
+    )
+    .replace(
+      "/** Windows Registry value types. */\nexport const Types",
+      '/**\n * Windows Registry value-type constants used by `getValue()` and `setValue()`.\n *\n * @example\n * key.setValue("Flag", new Uint8Array([1, 0, 0, 0]), Types.DWORD);\n */\nexport const Types',
+    )
+    .replace(
+      "/** Summary information about a registry key. */",
+      "/**\n * Summary information about a registry key.\n *\n * @example\n * const info = key.stat();\n * console.log(info.subKeyCount, info.valueCount);\n */",
+    )
+    .replace(
+      "/** Public registry key contract used by `Registry` and `RegistryKey`. */",
+      '/**\n * Public registry key contract used by `Registry` and `RegistryKey`. Opened and created keys own a native handle.\n *\n * @example\n * using key = Registry.createKey("HKCU\\\\Software\\\\Example");\n * key.setString("Theme", "dark");\n * console.log(key.getString("Theme"));\n */',
+    )
+    .replace(
+      "/** Internal backend contract implemented by runtime-specific FFI layers. */",
+      "/**\n * Advanced backend contract implemented by runtime-specific FFI layers. Most applications should use `Registry`.\n *\n * @example\n * const supported = isRegistryAvailable();\n */",
+    )
+    .replace(
+      "export class RegistryError extends Error {",
+      '/**\n * Error raised when registry operations are unavailable or fail.\n *\n * @example\n * if (!isRegistryAvailable()) throw new RegistryError("Windows Registry is unavailable");\n */\nexport class RegistryError extends Error {',
+    )
+    .replace(
+      "/**\n * Open registry key handle with convenience helpers for reading and writing\n * values.\n */",
+      '/**\n * Open registry key handle with convenience helpers for reading and writing values. Use `using` or `close()` to release opened and created keys.\n *\n * @example\n * using key = Registry.openKey("HKCU\\\\Software");\n * console.log(key.getSubKeyNames());\n */',
+    )
+    .replace(
+      " * @returns `true` when registry operations are supported on the current runtime.\n */\nexport function isRegistryAvailable",
+      ' * @returns `true` when registry operations are supported on the current runtime.\n * @example\n * if (isRegistryAvailable()) {\n *   using key = Registry.openKey("HKCU\\\\Software");\n * }\n */\nexport function isRegistryAvailable',
+    )
+    .replace(
+      "/** Windows Registry API facade. */",
+      '/**\n * Windows Registry API facade.\n *\n * @example\n * using key = Registry.createKey("HKCU\\\\Software\\\\Example");\n * key.setInt32("LaunchCount", 1);\n */',
+    )
+    .replace(
+      " * @returns A UTF-16LE buffer with a trailing null terminator.\n */\nexport function stringToWide",
+      ' * @returns A UTF-16LE buffer with a trailing null terminator.\n * @example\n * const data = stringToWide("Theme");\n */\nexport function stringToWide',
+    )
+    .replace(
+      " * @returns The decoded string up to the first null terminator.\n */\nexport function wideToString",
+      ' * @returns The decoded string up to the first null terminator.\n * @example\n * const value = wideToString(stringToWide("Theme"));\n */\nexport function wideToString',
+    )
+    .replace(
+      " * @returns The decoded string list.\n */\nexport function wideToMultiString",
+      ' * @returns The decoded string list.\n * @example\n * const values = wideToMultiString(multiStringToWide(["one", "two"]));\n */\nexport function wideToMultiString',
+    )
+    .replace(
+      " * @returns The encoded multi-string buffer.\n */\nexport function multiStringToWide",
+      ' * @returns The encoded multi-string buffer.\n * @example\n * const data = multiStringToWide(["one", "two"]);\n */\nexport function multiStringToWide',
+    );
+}
+
+function winRegistryFfi(source: string): string {
+  const transformed = source
+    .replace(
+      "queryValue(hkey, valueName, buffer) {",
+      "queryValue(hkey, valueName) {\n    const buffer = new Uint8Array(4096);",
+    )
+    .replace(
+      /      buffer\.set\(bigBuf\.subarray\(0, Math\.min\(buffer\.length, needed\)\)\);\n      return \{ type: ([^,]+), bytesRead: needed \};/,
+      "      return { type: $1, data: bigBuf };",
+    )
+    .replace(
+      /    return \{ type: ([^,]+), bytesRead: ([^}]+) \};/,
+      "    return { type: $1, data: buffer.subarray(0, $2) };",
+    );
+  if (transformed === source) throw new Error("Unexpected win-registry FFI source layout.");
+  return transformed;
+}
+
 function winRegistryDenoRegistry(source: string): string {
   const globals = source.indexOf("const globals =");
   const driver = source.indexOf("let isSupported = false;");
@@ -704,7 +806,7 @@ function winRegistryDenoRegistry(source: string): string {
     throw new Error("Unexpected win-registry source layout.");
   }
 
-  const denoDriver = `let isSupported = Deno.build.os === "windows";
+  const denoDriver = `let isSupported = false;
 
 let driver: RegistryBackend = {
   openKey(_hkey: bigint, _subKey: string, _access: number): bigint {
@@ -725,11 +827,7 @@ let driver: RegistryBackend = {
   enumValueNames(_hkey: bigint, _index: number, _bufSize: number): string | null {
     RegistryError.throwUnsupported();
   },
-  queryValue(
-    _hkey: bigint,
-    _value: string,
-    _buffer: Uint8Array,
-  ): { bytesRead: number; type: number } | null {
+  queryValue(_hkey: bigint, _value: string): { data: Uint8Array; type: number } | null {
     RegistryError.throwUnsupported();
   },
   queryInfoKey(_hkey: bigint): {
@@ -750,12 +848,40 @@ let driver: RegistryBackend = {
   },
 };
 
-if (isSupported) {
-  driver = (await import("./ffi_deno.ts")).backend;
+if (Deno.build.os === "windows") {
+  try {
+    driver = (await import("./ffi_deno.ts")).backend;
+    isSupported = true;
+  } catch {
+    // Deno requires --allow-ffi and a loadable Windows backend.
+  }
 }
 
 `;
   return `${source.slice(0, globals)}${source.slice(source.indexOf("export class RegistryError", globals), driver)}${denoDriver}${source.slice(api)}`;
+}
+
+function winRegistryNpmRegistry(source: string): string {
+  const runtimeDrivers =
+    /if \(typeof globals\.Deno !== "undefined"\) \{\n    driver = require\("\.\/ffi_deno\.js"\)\.backend;\n    isSupported = true;\n  \} else if \(typeof globals\.Bun !== "undefined"\) \{\n    driver = require\("\.\/ffi_bun\.js"\)\.backend;\n    isSupported = true;\n  \} else \{/;
+  return source.replace(
+    runtimeDrivers,
+    `if (typeof globals.Deno !== "undefined") {
+    try {
+      driver = require("./ffi_deno.js").backend;
+      isSupported = true;
+    } catch (error) {
+      if (process.env.DEBUG === "true") console.debug(error);
+    }
+  } else if (typeof globals.Bun !== "undefined") {
+    try {
+      driver = require("./ffi_bun.js").backend;
+      isSupported = true;
+    } catch (error) {
+      if (process.env.DEBUG === "true") console.debug(error);
+    }
+  } else {`,
+  );
 }
 
 async function writeWinRegistryDenoPackage(
@@ -768,18 +894,32 @@ async function writeWinRegistryDenoPackage(
   await Deno.copyFile(join(source, "LICENSE.md"), join(destination, "LICENSE.md"));
   const readme = rebrand(await Deno.readTextFile(join(source, "README.md"))).replace(
     /## Runtime Notes[\s\S]*?(?=\n## License)/,
-    "## Runtime Support\n\nThis JSR package supports Deno on Windows. On other platforms, `isRegistryAvailable()` returns `false` and registry operations throw `RegistryError`. Use `npm:@neotales/win-registry` when a project needs the cross-runtime package.\n",
+    '## Runtime Support\n\nThis JSR package supports Deno on Windows. Run Deno with `--allow-ffi`; when FFI permission is absent or the backend cannot load, `isRegistryAvailable()` returns `false` and registry operations throw `RegistryError`. Use `npm:@neotales/win-registry` when a project needs the cross-runtime package.\n\n## Resource Management\n\nEvery key returned by `Registry.openKey()` or `Registry.createKey()` owns a Windows registry handle. Prefer `using` so the handle closes at the end of its lexical scope, even when an operation throws. Predefined root keys such as `Registry.HKCU` do not need closing.\n\n```ts\nusing key = Registry.openKey("HKCU\\\\Software");\nconsole.log(key.getValueNames());\n```\n\nWhen `using` is unavailable, close the key in `finally`:\n\n```ts\nconst key = Registry.openKey("HKCU\\\\Software");\ntry {\n  console.log(key.getValueNames());\n} finally {\n  key.close();\n}\n```\n',
   );
-  await Deno.writeTextFile(join(destination, "README.md"), `${readme}\n`);
+  const installation =
+    '## Installation\n\n```sh\ndeno add jsr:@neotales/win-registry\n```\n\n```ts\nimport { Registry } from "jsr:@neotales/win-registry";\n```\n';
+  await Deno.writeTextFile(
+    join(destination, "README.md"),
+    `${readme.replace(/## Installation[\s\S]*?(?=\n## Usage)/, installation)}\n`,
+  );
   await Deno.writeTextFile(
     join(destination, "types.ts"),
-    rebrand(await Deno.readTextFile(join(source, "src", "types.ts"))),
+    winRegistryValueHandling(
+      winRegistryDocumentation(rebrand(await Deno.readTextFile(join(source, "src", "types.ts")))),
+    ),
   );
-  await Deno.copyFile(join(source, "src", "ffi_deno.ts"), join(destination, "ffi_deno.ts"));
+  await Deno.writeTextFile(
+    join(destination, "ffi_deno.ts"),
+    winRegistryFfi(await Deno.readTextFile(join(source, "src", "ffi_deno.ts"))),
+  );
   await Deno.writeTextFile(
     join(destination, "registry.ts"),
     winRegistryDenoRegistry(
-      winRegistryApi(await Deno.readTextFile(join(source, "src", "registry.ts"))),
+      winRegistryApi(
+        winRegistryValueHandling(
+          winRegistryDocumentation(await Deno.readTextFile(join(source, "src", "registry.ts"))),
+        ),
+      ),
     ),
   );
   await Deno.writeTextFile(
@@ -850,8 +990,24 @@ async function writeWinRegistryNpmPackage(
   await rewriteTree(destination, /\.(?:ts|md)$/, (content) =>
     rebrand(content).replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
   );
+  const typesPath = join(destination, "src", "types.ts");
+  await Deno.writeTextFile(
+    typesPath,
+    winRegistryValueHandling(winRegistryDocumentation(await Deno.readTextFile(typesPath))),
+  );
   const registryPath = join(destination, "src", "registry.ts");
-  await Deno.writeTextFile(registryPath, winRegistryApi(await Deno.readTextFile(registryPath)));
+  await Deno.writeTextFile(
+    registryPath,
+    winRegistryApi(
+      winRegistryValueHandling(
+        winRegistryDocumentation(winRegistryNpmRegistry(await Deno.readTextFile(registryPath))),
+      ),
+    ),
+  );
+  for (const module of ["ffi_bun", "ffi_deno", "ffi_koffi", "ffi_node"]) {
+    const ffiPath = join(destination, "src", `${module}.ts`);
+    await Deno.writeTextFile(ffiPath, winRegistryFfi(await Deno.readTextFile(ffiPath)));
+  }
   const nodeFfiPath = join(destination, "src", "ffi_node.ts");
   await Deno.writeTextFile(
     nodeFfiPath,
@@ -872,6 +1028,54 @@ async function writeWinRegistryNpmPackage(
     join(destination, "tsconfig.test.json"),
     JSON.stringify(npmTestTsConfig(), null, 2) + "\n",
   );
+  const testPath = join(destination, "tests", "index.test.ts");
+  const tests = (await Deno.readTextFile(testPath))
+    .replace(
+      "    } finally {\n      Registry.deleteKey(TEST_KEY);\n    }",
+      "    } finally {\n      k.close();\n      Registry.deleteKey(TEST_KEY);\n    }",
+    )
+    .replace(
+      '    } finally {\n      Registry.deleteKey("HKCU\\\\Software\\\\neotales-js-test-registry-relative");\n    }',
+      '    } finally {\n      created.close();\n      Registry.deleteKey("HKCU\\\\Software\\\\neotales-js-test-registry-relative");\n    }',
+    );
+  await Deno.writeTextFile(
+    testPath,
+    `${tests}
+
+test("win-registry::Registry preserves values larger than 4 KiB", { skip: !WINDOWS || !DANGEROUS_MUTATIONS }, () => {
+  if (!WINDOWS || !DANGEROUS_MUTATIONS) return;
+
+  const key = Registry.createKey(TEST_KEY);
+  try {
+    const binary = Uint8Array.from({ length: 8192 }, (_, index) => index % 256);
+    const string = "registry-value-".repeat(512);
+    const multi = ["first-".repeat(512), "second-".repeat(512)];
+
+    key.setBinary("LargeBinary", binary);
+    key.setString("LargeString", string);
+    key.setMultiString("LargeMulti", multi);
+
+    equal(key.getBinary("LargeBinary").length, binary.length);
+    equal(key.getBinary("LargeBinary")[8191], binary[8191]);
+    equal(key.getString("LargeString"), string);
+    equal(key.getMultiString("LargeMulti")[1], multi[1]);
+  } finally {
+    key.close();
+    Registry.deleteKey(TEST_KEY);
+  }
+});
+`,
+  );
+  const npmReadme = (await Deno.readTextFile(join(destination, "README.md")))
+    .replace(
+      /## Installation[\s\S]*?(?=\n## Usage)/,
+      '## Installation\n\n```sh\npnpm add @neotales/win-registry\n```\n\n```ts\nimport { Registry } from "@neotales/win-registry";\n```\n\nDeno projects that need the npm package can use `deno add npm:@neotales/win-registry` and import from `npm:@neotales/win-registry`.\n',
+    )
+    .replace(
+      /## Runtime Notes[\s\S]*?(?=\n## License)/,
+      '## Runtime Support\n\nThis ESM-only npm package supports Node, Bun, and Deno on Windows. Node uses native `node:ffi` when enabled by the current Node release, otherwise it falls back to the optional `koffi` dependency. Bun uses native FFI. Deno requires `--allow-ffi`; when its backend cannot load, `isRegistryAvailable()` returns `false`.\n\n## Resource Management\n\nEvery key returned by `Registry.openKey()` or `Registry.createKey()` owns a Windows registry handle. Prefer `using` so the handle closes at the end of its lexical scope, even when an operation throws. Predefined root keys such as `Registry.HKCU` do not need closing.\n\n```ts\nusing key = Registry.openKey("HKCU\\\\Software");\nconsole.log(key.getValueNames());\n```\n\nWhen `using` is unavailable, close the key in `finally`:\n\n```ts\nconst key = Registry.openKey("HKCU\\\\Software");\ntry {\n  console.log(key.getValueNames());\n} finally {\n  key.close();\n}\n```\n',
+    );
+  await Deno.writeTextFile(join(destination, "README.md"), `${npmReadme}\n`);
 }
 
 async function upstreamModules(): Promise<string[]> {
@@ -979,7 +1183,7 @@ async function releasePackages(baseTag: string | undefined): Promise<ReleasePack
 
 async function releasePrepare(tag: string): Promise<void> {
   const baseTag = await previousReleaseTag(tag);
-  await run(oxlint, ["eng", "jsr", "npm"]);
+  await lint();
   await format(true);
   await run("pnpm", ["audit", "--audit-level", "moderate"]);
   await testModules(undefined, new Set());
@@ -1055,7 +1259,7 @@ async function bootstrapPublish(name: string, dryRun: boolean): Promise<void> {
     token = prompt("npm auth token:")?.trim();
     if (!token) throw new Error("An npm auth token is required for the initial npm publication.");
   }
-  await run(oxlint, ["eng", "jsr", "npm"]);
+  await lint();
   await format(true);
   await testModules(name, new Set());
   const directory = join(npmDir, name);
@@ -1102,6 +1306,18 @@ async function format(check: boolean): Promise<void> {
   ]);
 }
 
+async function lint(): Promise<void> {
+  await run(oxlint, [
+    "--ignore-pattern",
+    "npm/*/esm/**",
+    "--ignore-pattern",
+    "npm/*/types/**",
+    "eng",
+    "jsr",
+    "npm",
+  ]);
+}
+
 const [command, ...args] = Deno.args;
 const name = ["import", "build", "pack", "publish-bootstrap"].includes(command)
   ? moduleName(args, true)
@@ -1134,7 +1350,7 @@ switch (command) {
     break;
   }
   case "lint":
-    await run(oxlint, ["eng", "jsr", "npm"]);
+    await lint();
     break;
   case "fmt":
     await format(args.includes("--check"));
@@ -1143,7 +1359,7 @@ switch (command) {
     await run("pnpm", ["audit", "--audit-level", "moderate"]);
     break;
   case "check":
-    await run(oxlint, ["eng", "jsr", "npm"]);
+    await lint();
     await format(true);
     await run("pnpm", ["audit", "--audit-level", "moderate"]);
     await testModules(undefined, new Set());

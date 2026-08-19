@@ -142,7 +142,8 @@ export const backend: RegistryBackend = {
     if (status !== ERROR_SUCCESS) throw new Error(`RegEnumValueW failed with error code ${status}`);
     return String.fromCharCode(...nameBuf.subarray(0, sizeBuf[0]));
   },
-  queryValue(hkey, valueName, buffer) {
+  queryValue(hkey, valueName) {
+    const buffer = new Uint8Array(4096);
     const typeBuf = [0];
     const sizeBuf = [buffer.length];
     let status = RegQueryValueExW(toHKEY(hkey), valueName, null, typeBuf, buffer, sizeBuf);
@@ -152,11 +153,10 @@ export const backend: RegistryBackend = {
       sizeBuf[0] = needed;
       status = RegQueryValueExW(toHKEY(hkey), valueName, null, typeBuf, bigBuf, sizeBuf);
       if (status !== ERROR_SUCCESS) return null;
-      buffer.set(bigBuf.subarray(0, Math.min(buffer.length, needed)));
-      return { type: typeBuf[0], bytesRead: needed };
+      return { type: typeBuf[0], data: bigBuf };
     }
     if (status !== ERROR_SUCCESS) return null;
-    return { type: typeBuf[0], bytesRead: sizeBuf[0] };
+    return { type: typeBuf[0], data: buffer.subarray(0, sizeBuf[0]) };
   },
   setValue(hkey, valueName, type, data) {
     const status = RegSetValueExW(toHKEY(hkey), valueName, 0, type, data, data.length);

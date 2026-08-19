@@ -181,7 +181,8 @@ export const backend: RegistryBackend = {
     if (status !== ERROR_SUCCESS) throw new Error(`RegEnumValueW failed with error code ${status}`);
     return wideToString(nameBuf, readU32(sizeBuf) * 2);
   },
-  queryValue(hkey, valueName, buffer) {
+  queryValue(hkey, valueName) {
+    const buffer = new Uint8Array(4096);
     const wName = stringToWide(valueName);
     const typeBuf = new Uint8Array(4);
     const sizeBuf = new Uint8Array(4);
@@ -193,11 +194,10 @@ export const backend: RegistryBackend = {
       writeU32(sizeBuf, needed);
       status = lib.functions.RegQueryValueExW(hkey, wName, null, typeBuf, bigBuf, sizeBuf);
       if (status !== ERROR_SUCCESS) return null;
-      buffer.set(bigBuf.subarray(0, Math.min(buffer.length, needed)));
-      return { type: readU32(typeBuf), bytesRead: needed };
+      return { type: readU32(typeBuf), data: bigBuf };
     }
     if (status !== ERROR_SUCCESS) return null;
-    return { type: readU32(typeBuf), bytesRead: readU32(sizeBuf) };
+    return { type: readU32(typeBuf), data: buffer.subarray(0, readU32(sizeBuf)) };
   },
   setValue(hkey, valueName, type, data) {
     const status = lib.functions.RegSetValueExW(

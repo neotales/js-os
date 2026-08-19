@@ -27,6 +27,12 @@ const globals = globalThis as typeof globalThis & {
   process?: { platform?: string };
 };
 
+/**
+ * Error raised when registry operations are unavailable or fail.
+ *
+ * @example
+ * if (!isRegistryAvailable()) throw new RegistryError("Windows Registry is unavailable");
+ */
 export class RegistryError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
@@ -59,11 +65,7 @@ let driver: RegistryBackend = {
   enumValueNames(_hkey: bigint, _index: number, _bufSize: number): string | null {
     RegistryError.throwUnsupported();
   },
-  queryValue(
-    _hkey: bigint,
-    _value: string,
-    _buffer: Uint8Array,
-  ): { bytesRead: number; type: number } | null {
+  queryValue(_hkey: bigint, _value: string): { data: Uint8Array; type: number } | null {
     RegistryError.throwUnsupported();
   },
   queryInfoKey(_hkey: bigint): {
@@ -89,11 +91,19 @@ if (globals.process?.platform === "win32") {
   const require = createRequire(import.meta.url);
 
   if (typeof globals.Deno !== "undefined") {
-    driver = require("./ffi_deno.js").backend;
-    isSupported = true;
+    try {
+      driver = require("./ffi_deno.js").backend;
+      isSupported = true;
+    } catch (error) {
+      if (process.env.DEBUG === "true") console.debug(error);
+    }
   } else if (typeof globals.Bun !== "undefined") {
-    driver = require("./ffi_bun.js").backend;
-    isSupported = true;
+    try {
+      driver = require("./ffi_bun.js").backend;
+      isSupported = true;
+    } catch (error) {
+      if (process.env.DEBUG === "true") console.debug(error);
+    }
   } else {
     try {
       if (process.getBuiltinModule("node:ffi")) {
@@ -116,14 +126,21 @@ if (globals.process?.platform === "win32") {
  * runtime.
  *
  * @returns `true` when registry operations are supported on the current runtime.
+ * @example
+ * if (isRegistryAvailable()) {
+ *   using key = Registry.openKey("HKCU\\Software");
+ * }
  */
 export function isRegistryAvailable(): boolean {
   return isSupported;
 }
 
 /**
- * Open registry key handle with convenience helpers for reading and writing
- * values.
+ * Open registry key handle with convenience helpers for reading and writing values. Use `using` or `close()` to release opened and created keys.
+ *
+ * @example
+ * using key = Registry.openKey("HKCU\\Software");
+ * console.log(key.getSubKeyNames());
  */
 export class RegistryKey implements Key {
   #handle: bigint;
@@ -254,13 +271,17 @@ export class RegistryKey implements Key {
 
   getValue(name: string, buffer?: Uint8Array): { data: Uint8Array; type: number } {
     this.#ensureOpen();
-    const buf = buffer ?? new Uint8Array(4096);
-    const result = driver.queryValue(this.#handle, name, buf);
+    const result = driver.queryValue(this.#handle, name);
     if (!result) {
       throw new RegistryError(`Registry value "${name}" not found under "${this.#path}".`);
     }
 
-    return { data: buf.subarray(0, result.bytesRead), type: result.type };
+    if (buffer && buffer.length >= result.data.length) {
+      buffer.set(result.data);
+      return { data: buffer.subarray(0, result.data.length), type: result.type };
+    }
+
+    return result;
   }
 
   getString(name: string): string {
@@ -434,8 +455,20 @@ function deleteRegistryKey(arg1: Key | string, arg2?: string): void {
   }
 }
 
+type RegistryApi = {
+  readonly HKCR: Key;
+  readonly HKCU: Key;
+  readonly HKLM: Key;
+  readonly HKU: Key;
+  readonly HKPD: Key;
+  readonly HKCC: Key;
+  openKey: typeof openRegistryKey;
+  createKey: typeof createRegistryKey;
+  deleteKey: typeof deleteRegistryKey;
+};
+
 /** Windows Registry API facade. */
-export const Registry = {
+export const Registry: RegistryApi = {
   /** Returns the predefined `HKEY_CLASSES_ROOT` key. */
   get HKCR(): Key {
     return predefinedKey(HKEY_CLASSES_ROOT, "HKEY_CLASSES_ROOT");
