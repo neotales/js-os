@@ -1498,6 +1498,28 @@ ${source.slice(supported, runtime)}if (Deno.build.os === "linux") {
 ${source.slice(api)}`;
 }
 
+function linuxLibsecretNpmVault(source: string): string {
+  const runtime = source.indexOf("if (globals.process?.platform");
+  const conditionEnd = source.indexOf("{\n", runtime) + 2;
+  const runtimeEnd = source.indexOf("\n}\n\n", conditionEnd);
+  const api = source.indexOf("/**\n * Returns whether", runtimeEnd);
+  if (runtime === -1 || conditionEnd === 1 || runtimeEnd === -1 || api === -1) {
+    throw new Error("Unexpected linux-libsecret source layout.");
+  }
+  const condition = source.slice(runtime, conditionEnd);
+  const body = source.slice(conditionEnd, runtimeEnd).replace(/^/gm, "  ");
+  return `${source.slice(0, runtime)}${condition}  try {
+${body}
+  } catch (error) {
+    if (globals.process?.env?.DEBUG === "true") {
+      console.debug(error);
+    }
+  }
+}
+
+${source.slice(api)}`;
+}
+
 function expandSingleLineIfBodies(source: string): string {
   return source.replace(/^(\s*)if \(([^)\n]+)\) ([^\n;]+);$/gm, "$1if ($2)\n$1  $3;");
 }
@@ -1507,6 +1529,25 @@ function linuxLibsecretFfi(source: string): string {
     source
       .replaceAll("const secret = ", "const libsecretApi = ")
       .replace(/\bsecret\.symbols\./g, "libsecretApi.symbols."),
+  );
+}
+
+function linuxLibsecretNpmTests(source: string): string {
+  const normalized = source.replaceAll(
+    "  isLinuxLibsecretAvailable,\n  isLinuxLibsecretAvailable,\n",
+    "  isLinuxLibsecretAvailable,\n",
+  );
+  const withAvailability = normalized.includes("  isLinuxLibsecretAvailable,\n")
+    ? normalized
+    : normalized.replace(
+        "  getSecretBytes,\n",
+        "  getSecretBytes,\n  isLinuxLibsecretAvailable,\n",
+      );
+  return expandSingleLineIfBodies(
+    withAvailability.replace(
+      "{ skip: !LINUX || !DANGEROUS_MUTATIONS },",
+      '{ skip: !LINUX || !DANGEROUS_MUTATIONS || "Bun" in globalThis || !isLinuxLibsecretAvailable() },',
+    ),
   );
 }
 
@@ -1579,6 +1620,10 @@ Deno.test("libsecret availability reports a boolean", () => {
       .replaceAll("Deno_", "deno")
       .replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
   );
+  const npmVault = join(npm, "src", "vault.ts");
+  await Deno.writeTextFile(npmVault, linuxLibsecretNpmVault(await Deno.readTextFile(npmVault)));
+  const npmTests = join(npm, "tests", "index.test.ts");
+  await Deno.writeTextFile(npmTests, linuxLibsecretNpmTests(await Deno.readTextFile(npmTests)));
   for (const file of ["ffi_bun", "ffi_deno", "ffi_koffi", "ffi_node"]) {
     const path = join(npm, "src", `${file}.ts`);
     const content = await Deno.readTextFile(path);

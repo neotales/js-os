@@ -12,3 +12,4 @@ npm/linux-libsecret/src/ffi_bun.ts
 npm/linux-libsecret/src/ffi_deno.ts
 npm/linux-libsecret/src/ffi_koffi.ts
 npm/linux-libsecret/src/ffi_node.ts
+npm/linux-libsecret/tests/index.test.ts

@@ -14,31 +14,38 @@ let driver = {
     },
 };
 if (globals.process?.platform === "linux" && globals.process.getBuiltinModule) {
-    const { createRequire } = globals.process.getBuiltinModule("node:module");
-    const require = createRequire(import.meta.url);
-    if (typeof globals.Deno !== "undefined") {
-        driver = require("./ffi_deno.js").backend;
-        isSupported = true;
-    }
-    else if (typeof globals.Bun !== "undefined") {
-        driver = require("./ffi_bun.js").backend;
-        isSupported = true;
-    }
-    else {
-        try {
-            if (globals.process.getBuiltinModule("node:ffi")) {
-                driver = require("./ffi_node.js").backend;
-                isSupported = true;
+    try {
+        const { createRequire } = globals.process.getBuiltinModule("node:module");
+        const require = createRequire(import.meta.url);
+        if (typeof globals.Deno !== "undefined") {
+            driver = require("./ffi_deno.js").backend;
+            isSupported = true;
+        }
+        else if (typeof globals.Bun !== "undefined") {
+            driver = require("./ffi_bun.js").backend;
+            isSupported = true;
+        }
+        else {
+            try {
+                if (globals.process.getBuiltinModule("node:ffi")) {
+                    driver = require("./ffi_node.js").backend;
+                    isSupported = true;
+                }
+                else {
+                    driver = require("./ffi_koffi.js").backend;
+                    isSupported = true;
+                }
             }
-            else {
-                driver = require("./ffi_koffi.js").backend;
-                isSupported = true;
+            catch (error) {
+                if (globals.process.env?.DEBUG === "true") {
+                    console.debug(error);
+                }
             }
         }
-        catch (error) {
-            if (globals.process.env?.DEBUG === "true") {
-                console.debug(error);
-            }
+    }
+    catch (error) {
+        if (globals.process?.env?.DEBUG === "true") {
+            console.debug(error);
         }
     }
 }

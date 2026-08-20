@@ -39,9 +39,10 @@ test("linux-libsecret::unsupported platform returns safe defaults", { skip: LINU
 
 test(
   "linux-libsecret::set/get/list/delete roundtrip (dangerous)",
-  { skip: !LINUX || !DANGEROUS_MUTATIONS },
+  { skip: !LINUX || !DANGEROUS_MUTATIONS || "Bun" in globalThis || !isLinuxLibsecretAvailable() },
   (t) => {
-    if (!LINUX || !DANGEROUS_MUTATIONS) return;
+    if (!LINUX || !DANGEROUS_MUTATIONS)
+      return;
 
     const service = "neotales-js-linux-libsecret-test";
     const account = `acct-${Date.now()}`;
