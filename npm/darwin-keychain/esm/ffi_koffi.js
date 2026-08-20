@@ -25,6 +25,15 @@ const ATTR_SERVICE = 0x73766365;
 const ATTR_ACCOUNT = 0x61636374;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
+const SecKeychainAttribute = koffi.struct("SecKeychainAttribute", {
+    tag: "uint32",
+    length: "uint32",
+    data: "void *",
+});
+const SecKeychainAttributeList = koffi.struct("SecKeychainAttributeList", {
+    count: "uint32",
+    attr: "SecKeychainAttribute *",
+});
 function cbytes(value) {
     return enc.encode(value);
 }
@@ -38,15 +47,6 @@ function ptrToBytes(value, length) {
 }
 function ptrAddress(value) {
     return Number(koffi.address(value));
-}
-function readU32(address, offset) {
-    return koffi.decode(address + offset, "uint32");
-}
-function readPtr(address, offset) {
-    const bytes = koffi.decode(address + offset, koffi.array("uint8", 8));
-    const view = new DataView(new Uint8Array(bytes).buffer);
-    const ptr = view.getBigUint64(0, true);
-    return ptr === 0n ? null : Number(ptr);
 }
 function rawPtr(value) {
     return ptrAddress(value);
@@ -97,22 +97,15 @@ function getAccountAttribute(itemPtr) {
         return "";
     }
     try {
-        const attrsAddress = ptrAddress(attrsOut[0]);
-        if (readU32(attrsAddress, 0) === 0)
-            return "";
-        const attrsArrayPtr = readPtr(attrsAddress, 8);
-        if (!attrsArrayPtr) {
+        const attrs = koffi.decode(attrsOut[0], SecKeychainAttributeList);
+        if (attrs.count === 0 || !attrs.attr) {
             return "";
         }
-        const attrsArrayAddress = typeof attrsArrayPtr === "number" ? attrsArrayPtr : ptrAddress(attrsArrayPtr);
-        if (readU32(attrsArrayAddress, 0) !== ATTR_ACCOUNT)
-            return "";
-        const length = readU32(attrsArrayAddress, 4);
-        const dataPtr = readPtr(attrsArrayAddress, 8);
-        if (!dataPtr || length === 0) {
+        const attr = koffi.decode(attrs.attr, SecKeychainAttribute);
+        if (attr.tag !== ATTR_ACCOUNT || !attr.data || attr.length === 0) {
             return "";
         }
-        return dec.decode(ptrToBytes(dataPtr, length));
+        return dec.decode(ptrToBytes(attr.data, attr.length));
     }
     finally {
         SecKeychainItemFreeAttributesAndData(attrsOut[0], null);

@@ -1277,6 +1277,41 @@ function darwinKeychainFfi(source: string): string {
     .replace(/^(\s*)if \(([^)\n]+)\) (return|throw) ([^;]+);$/gm, "$1if ($2) {\n$1  $3 $4;\n$1}");
 }
 
+function darwinKeychainKoffi(source: string): string {
+  source = source.replace(
+    "const dec = new TextDecoder();",
+    `const dec = new TextDecoder();
+
+const SecKeychainAttribute = koffi.struct("SecKeychainAttribute", {
+  tag: "uint32",
+  length: "uint32",
+  data: "void *",
+});
+const SecKeychainAttributeList = koffi.struct("SecKeychainAttributeList", {
+  count: "uint32",
+  attr: "SecKeychainAttribute *",
+});`,
+  );
+  source = source.replace(
+    /function readU32\([\s\S]*?\n}\n\nfunction readPtr\([\s\S]*?\n}\n\nfunction rawPtr/,
+    "function rawPtr",
+  );
+  source = source.replace(
+    /const attrsAddress = ptrAddress\(attrsOut\[0\]\);[\s\S]*?return dec\.decode\(ptrToBytes\(dataPtr, length\)\);/,
+    `const attrs = koffi.decode(attrsOut[0], SecKeychainAttributeList);
+    if (attrs.count === 0 || !attrs.attr) {
+      return "";
+    }
+
+    const attr = koffi.decode(attrs.attr, SecKeychainAttribute);
+    if (attr.tag !== ATTR_ACCOUNT || !attr.data || attr.length === 0) {
+      return "";
+    }
+    return dec.decode(ptrToBytes(attr.data, attr.length));`,
+  );
+  return source;
+}
+
 function darwinKeychainDocs(source: string, module: string): string {
   if (!source.startsWith("/**\n * @module"))
     source = `/**\n * ${module}\n *\n * @module @neotales/darwin-keychain\n */\n\n${source}`;
@@ -1399,7 +1434,11 @@ async function writeDarwinKeychainPackage(
   );
   for (const file of ["ffi_deno", "ffi_koffi", "ffi_node"]) {
     const path = join(npm, "src", `${file}.ts`);
-    await Deno.writeTextFile(path, darwinKeychainFfi(await Deno.readTextFile(path)));
+    let content = darwinKeychainFfi(await Deno.readTextFile(path));
+    if (file === "ffi_koffi") {
+      content = darwinKeychainKoffi(content);
+    }
+    await Deno.writeTextFile(path, content);
   }
   const tests = join(npm, "tests", "index.test.ts");
   await Deno.writeTextFile(tests, darwinKeychainTests(await Deno.readTextFile(tests)));
