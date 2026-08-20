@@ -113,16 +113,16 @@ async function readPackage(directory: string): Promise<PackageJson> {
 
 function rebrand(content: string): string {
   return content
-    .replaceAll("@neostd/", "@neotales/")
-    .replaceAll("@neostd%2F", "@neotales%2F")
-    .replaceAll("neostd-js", "neotales-js")
-    .replaceAll("github.com/neostd/js", "github.com/neotales/js-os")
-    .replaceAll("badge.fury.io/gh/neostd%2Fjs", "badge.fury.io/gh/neotales%2Fjs-os")
+    .replaceAll("@neotales/", "@neotales/")
+    .replaceAll("@neotales%2F", "@neotales%2F")
+    .replaceAll("neotales-js", "neotales-js")
+    .replaceAll("github.com/neotales/js", "github.com/neotales/js-os")
+    .replaceAll("badge.fury.io/gh/neotales%2Fjs", "badge.fury.io/gh/neotales%2Fjs-os")
     .replaceAll(
-      "raw.githubusercontent.com/neostd/js/refs/heads/dev/eng/assets/logo.png",
+      "raw.githubusercontent.com/neotales/js/refs/heads/dev/eng/assets/logo.png",
       "raw.githubusercontent.com/neotales/js-std/refs/heads/dev/eng/assets/logo.png",
     )
-    .replaceAll("raw.githubusercontent.com/neostd/js", "raw.githubusercontent.com/neotales/js-os");
+    .replaceAll("raw.githubusercontent.com/neotales/js", "raw.githubusercontent.com/neotales/js-os");
 }
 
 async function rewriteTree(
@@ -154,10 +154,10 @@ function npmExports(pkg: PackageJson): Record<string, unknown> {
 function npmManifest(pkg: PackageJson): Record<string, unknown> {
   const koffi = pkg.peerDependencies?.koffi;
   return {
-    name: pkg.name.replace("@neostd/", "@neotales/"),
+    name: pkg.name.replace("@neotales/", "@neotales/"),
     version: pkg.version,
     description: pkg.description,
-    keywords: pkg.keywords?.filter((keyword) => keyword !== "neostd"),
+    keywords: pkg.keywords?.filter((keyword) => keyword !== "neotales"),
     license: pkg.license ?? "MIT",
     type: "module",
     files: ["esm", "types"],
@@ -166,7 +166,7 @@ function npmManifest(pkg: PackageJson): Record<string, unknown> {
     repository: {
       type: "git",
       url: "git+https://github.com/neotales/js-os.git",
-      directory: `npm/${pkg.name.replace("@neostd/", "")}`,
+      directory: `npm/${pkg.name.replace("@neotales/", "")}`,
     },
     bugs: { url: "https://github.com/neotales/js-os/issues" },
     homepage: "https://github.com/neotales/js-os",
@@ -476,7 +476,7 @@ export function isElevated(cache = true): boolean {
     join(destination, "deno.json"),
     JSON.stringify(
       {
-        name: pkg.name.replace("@neostd/", "@neotales/"),
+        name: pkg.name.replace("@neotales/", "@neotales/"),
         version: pkg.version,
         description: `${pkg.description} Deno only.`,
         license: pkg.license,
@@ -963,7 +963,7 @@ Deno.test("registry reads Windows version values", { ignore: Deno.build.os !== "
     join(destination, "deno.json"),
     JSON.stringify(
       {
-        name: pkg.name.replace("@neostd/", "@neotales/"),
+        name: pkg.name.replace("@neotales/", "@neotales/"),
         version: pkg.version,
         description: `${pkg.description} Deno on Windows only.`,
         license: pkg.license,
@@ -1164,7 +1164,7 @@ Deno.test("credential listing is safe on Windows", { ignore: Deno.build.os !== "
     join(destination, "deno.json"),
     JSON.stringify(
       {
-        name: pkg.name.replace("@neostd/", "@neotales/"),
+        name: pkg.name.replace("@neotales/", "@neotales/"),
         version: pkg.version,
         description: `${pkg.description} Deno on Windows only.`,
         license: pkg.license,
@@ -1417,7 +1417,7 @@ async function writeDarwinKeychainPackage(
     join(jsr, "deno.json"),
     JSON.stringify(
       {
-        name: pkg.name.replace("@neostd/", "@neotales/"),
+        name: pkg.name.replace("@neotales/", "@neotales/"),
         version: pkg.version,
         description: `${pkg.description} Deno on macOS only.`,
         license: pkg.license,

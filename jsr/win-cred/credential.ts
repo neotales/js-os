@@ -95,7 +95,7 @@ export interface WriteOptions {
  *
  * @example Usage
  * ```ts
- * import { saveCredential } from "@neostd/win-cred";
+ * import { saveCredential } from "@neotales/win-cred";
  *
  * saveCredential({ targetName: "myapp/token", secret: "secret" });
  * ```

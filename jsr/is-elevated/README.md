@@ -8,8 +8,8 @@ On Unix-like systems this typically means root. On Windows it checks whether the
 ![logo](https://raw.githubusercontent.com/neotales/js-std/refs/heads/dev/eng/assets/logo.png)
 
 [![JSR](https://jsr.io/badges/@neotales/is-elevated)](https://jsr.io/@neotales/is-elevated)
-[![npm version](https://badge.fury.io/js/@neostd%2Fis-elevated.svg)](https://badge.fury.io/js/@neostd%2Fis-elevated)
-[![GitHub version](https://badge.fury.io/gh/neostd%2Fjs.svg)](https://badge.fury.io/gh/neostd%2Fjs)
+[![npm version](https://badge.fury.io/js/@neotales%2Fis-elevated.svg)](https://badge.fury.io/js/@neotales%2Fis-elevated)
+[![GitHub version](https://badge.fury.io/gh/neotales%2Fjs.svg)](https://badge.fury.io/gh/neotales%2Fjs)
 
 ## Documentation
 
