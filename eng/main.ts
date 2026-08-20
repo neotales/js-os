@@ -1322,31 +1322,31 @@ function darwinKeychainDocs(source: string, module: string): string {
   return source
     .replace(
       "/** Secret record returned by keychain listing operations. */",
-      '/**\n * Secret record returned by keychain listing operations.\n *\n * @example\n * const record: SecretRecord = { service: "service", account: "account", secret: new Uint8Array() };\n */',
+      '/**\n * Secret record returned by keychain listing operations.\n *\n * @example\n * import type { SecretRecord } from "@neotales/darwin-keychain";\n *\n * const record: SecretRecord = { service: "service", account: "account", secret: new Uint8Array() };\n */',
     )
     .replace(
       " * @returns `true` when generic password operations are supported.\n */\nexport function isDarwinKeychainAvailable",
-      ' * @returns `true` when generic password operations are supported.\n * @example\n * if (isDarwinKeychainAvailable()) console.log("Keychain is available");\n */\nexport function isDarwinKeychainAvailable',
+      ' * @returns `true` when generic password operations are supported.\n * @example\n * import { isDarwinKeychainAvailable } from "@neotales/darwin-keychain";\n *\n * if (isDarwinKeychainAvailable())\n *   console.log("Keychain is available");\n */\nexport function isDarwinKeychainAvailable',
     )
     .replace(
       " * @returns The stored secret string, or `null` when missing.\n */\nexport function readSecret",
-      ' * @returns The stored secret string, or `null` when missing.\n * @example\n * const secret = readSecret("service", "account");\n */\nexport function readSecret',
+      ' * @returns The stored secret string, or `null` when missing.\n * @example\n * import { readSecret } from "@neotales/darwin-keychain";\n *\n * const secret = readSecret("service", "account");\n */\nexport function readSecret',
     )
     .replace(
       " * @returns The stored secret bytes, or `null` when missing.\n */\nexport function getSecretBytes",
-      ' * @returns The stored secret bytes, or `null` when missing.\n * @example\n * const bytes = getSecretBytes("service", "account");\n */\nexport function getSecretBytes',
+      ' * @returns The stored secret bytes, or `null` when missing.\n * @example\n * import { getSecretBytes } from "@neotales/darwin-keychain";\n *\n * const bytes = getSecretBytes("service", "account");\n */\nexport function getSecretBytes',
     )
     .replace(
       " * @param secret Secret string or bytes.\n */\nexport function saveSecret",
-      ' * @param secret Secret string or bytes.\n * @returns Nothing.\n * @example\n * saveSecret("service", "account", "secret");\n */\nexport function saveSecret',
+      ' * @param secret Secret string or bytes.\n * @returns Nothing.\n * @example\n * import { saveSecret } from "@neotales/darwin-keychain";\n *\n * saveSecret("service", "account", "secret");\n */\nexport function saveSecret',
     )
     .replace(
       " * @returns `true` when a record was deleted.\n */\nexport function removeSecret",
-      ' * @returns `true` when a record was deleted.\n * @example\n * removeSecret("service", "account");\n */\nexport function removeSecret',
+      ' * @returns `true` when a record was deleted.\n * @example\n * import { removeSecret } from "@neotales/darwin-keychain";\n *\n * removeSecret("service", "account");\n */\nexport function removeSecret',
     )
     .replace(
       " * @returns Decoded records for the given service.\n */\nexport function listSecrets",
-      ' * @returns Decoded records for the given service.\n * @example\n * const records = listSecrets("service");\n */\nexport function listSecrets',
+      ' * @returns Decoded records for the given service.\n * @example\n * import { listSecrets } from "@neotales/darwin-keychain";\n *\n * const records = listSecrets("service");\n */\nexport function listSecrets',
     );
 }
 

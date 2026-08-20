@@ -52,7 +52,10 @@ if (globals.process?.platform === "darwin" && globals.process.getBuiltinModule) 
  *
  * @returns `true` when generic password operations are supported.
  * @example
- * if (isDarwinKeychainAvailable()) console.log("Keychain is available");
+ * import { isDarwinKeychainAvailable } from "@neotales/darwin-keychain";
+ *
+ * if (isDarwinKeychainAvailable())
+ *   console.log("Keychain is available");
  */
 export function isDarwinKeychainAvailable() {
     return isSupported;
@@ -64,6 +67,8 @@ export function isDarwinKeychainAvailable() {
  * @param account Keychain account name.
  * @returns The stored secret string, or `null` when missing.
  * @example
+ * import { readSecret } from "@neotales/darwin-keychain";
+ *
  * const secret = readSecret("service", "account");
  */
 export function readSecret(service, account) {
@@ -77,6 +82,8 @@ export function readSecret(service, account) {
  * @param account Keychain account name.
  * @returns The stored secret bytes, or `null` when missing.
  * @example
+ * import { getSecretBytes } from "@neotales/darwin-keychain";
+ *
  * const bytes = getSecretBytes("service", "account");
  */
 export function getSecretBytes(service, account) {
@@ -90,6 +97,8 @@ export function getSecretBytes(service, account) {
  * @param secret Secret string or bytes.
  * @returns Nothing.
  * @example
+ * import { saveSecret } from "@neotales/darwin-keychain";
+ *
  * saveSecret("service", "account", "secret");
  */
 export function saveSecret(service, account, secret) {
@@ -102,6 +111,8 @@ export function saveSecret(service, account, secret) {
  * @param account Keychain account name.
  * @returns `true` when a record was deleted.
  * @example
+ * import { removeSecret } from "@neotales/darwin-keychain";
+ *
  * removeSecret("service", "account");
  */
 export function removeSecret(service, account) {
@@ -116,6 +127,8 @@ export function removeSecret(service, account) {
  * @param service Keychain service name.
  * @returns Decoded records for the given service.
  * @example
+ * import { listSecrets } from "@neotales/darwin-keychain";
+ *
  * const records = listSecrets("service");
  */
 export function listSecrets(service) {

@@ -8,7 +8,10 @@
  *
  * @returns `true` when generic password operations are supported.
  * @example
- * if (isDarwinKeychainAvailable()) console.log("Keychain is available");
+ * import { isDarwinKeychainAvailable } from "@neotales/darwin-keychain";
+ *
+ * if (isDarwinKeychainAvailable())
+ *   console.log("Keychain is available");
  */
 export declare function isDarwinKeychainAvailable(): boolean;
 /**
@@ -18,6 +21,8 @@ export declare function isDarwinKeychainAvailable(): boolean;
  * @param account Keychain account name.
  * @returns The stored secret string, or `null` when missing.
  * @example
+ * import { readSecret } from "@neotales/darwin-keychain";
+ *
  * const secret = readSecret("service", "account");
  */
 export declare function readSecret(service: string, account: string): string | null;
@@ -28,6 +33,8 @@ export declare function readSecret(service: string, account: string): string | n
  * @param account Keychain account name.
  * @returns The stored secret bytes, or `null` when missing.
  * @example
+ * import { getSecretBytes } from "@neotales/darwin-keychain";
+ *
  * const bytes = getSecretBytes("service", "account");
  */
 export declare function getSecretBytes(service: string, account: string): Uint8Array | null;
@@ -39,6 +46,8 @@ export declare function getSecretBytes(service: string, account: string): Uint8A
  * @param secret Secret string or bytes.
  * @returns Nothing.
  * @example
+ * import { saveSecret } from "@neotales/darwin-keychain";
+ *
  * saveSecret("service", "account", "secret");
  */
 export declare function saveSecret(service: string, account: string, secret: string | Uint8Array): void;
@@ -49,6 +58,8 @@ export declare function saveSecret(service: string, account: string, secret: str
  * @param account Keychain account name.
  * @returns `true` when a record was deleted.
  * @example
+ * import { removeSecret } from "@neotales/darwin-keychain";
+ *
  * removeSecret("service", "account");
  */
 export declare function removeSecret(service: string, account: string): boolean;
@@ -61,6 +72,8 @@ export declare function removeSecret(service: string, account: string): boolean;
  * @param service Keychain service name.
  * @returns Decoded records for the given service.
  * @example
+ * import { listSecrets } from "@neotales/darwin-keychain";
+ *
  * const records = listSecrets("service");
  */
 export declare function listSecrets(service: string): Array<{

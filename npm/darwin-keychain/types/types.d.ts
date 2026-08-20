@@ -7,6 +7,8 @@
  * Secret record returned by keychain listing operations.
  *
  * @example
+ * import type { SecretRecord } from "@neotales/darwin-keychain";
+ *
  * const record: SecretRecord = { service: "service", account: "account", secret: new Uint8Array() };
  */
 export interface SecretRecord {
