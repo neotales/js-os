@@ -85,8 +85,8 @@ console.log(listSecrets("my-service"));
 
 ## Exports
 
-| Export                                                                                                   | Subpath                   | Description                                    |
-| -------------------------------------------------------------------------------------------------------- | ------------------------- | ---------------------------------------------- |
+| Export                                                                                                   | Subpath                     | Description                                    |
+| -------------------------------------------------------------------------------------------------------- | --------------------------- | ---------------------------------------------- |
 | `readSecret`, `getSecretBytes`, `saveSecret`, `removeSecret`, `listSecrets`, `isDarwinKeychainAvailable` | `@neotales/darwin-keychain` | macOS keychain helpers and availability check. |
 | `SecretRecord`                                                                                           | `@neotales/darwin-keychain` | Keychain list record type.                     |
 
