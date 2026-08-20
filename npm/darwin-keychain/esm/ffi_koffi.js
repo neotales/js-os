@@ -16,7 +16,6 @@ const SecKeychainItemDelete = sec.func("int SecKeychainItemDelete(void *itemRef)
 const SecKeychainItemFreeContent = sec.func("int SecKeychainItemFreeContent(void *attrList, void *data)");
 const SecKeychainSearchCreateFromAttributes = sec.func("int SecKeychainSearchCreateFromAttributes(void *keychainOrArray, int itemClass, void *attrList, _Out_ void **searchRef)");
 const SecKeychainSearchCopyNext = sec.func("int SecKeychainSearchCopyNext(void *searchRef, _Out_ void **itemRef)");
-const SecKeychainSearchRelease = sec.func("int SecKeychainSearchRelease(void *searchRef)");
 const SecKeychainItemCopyAttributesAndData = sec.func("int SecKeychainItemCopyAttributesAndData(void *itemRef, void *info, void *itemClass, _Out_ void **attrList, _Out_ uint32 *length, void *outData)");
 const SecKeychainItemFreeAttributesAndData = sec.func("int SecKeychainItemFreeAttributesAndData(void *attrList, void *data)");
 const CFRelease = cf.func("void CFRelease(void *cf)");
@@ -195,7 +194,7 @@ export const backend = {
             }
         }
         finally {
-            SecKeychainSearchRelease(searchOut[0]);
+            CFRelease(searchOut[0]);
         }
         return results;
     },

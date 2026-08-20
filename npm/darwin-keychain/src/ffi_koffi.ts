@@ -33,7 +33,6 @@ const SecKeychainSearchCreateFromAttributes = sec.func(
 const SecKeychainSearchCopyNext = sec.func(
   "int SecKeychainSearchCopyNext(void *searchRef, _Out_ void **itemRef)",
 );
-const SecKeychainSearchRelease = sec.func("int SecKeychainSearchRelease(void *searchRef)");
 const SecKeychainItemCopyAttributesAndData = sec.func(
   "int SecKeychainItemCopyAttributesAndData(void *itemRef, void *info, void *itemClass, _Out_ void **attrList, _Out_ uint32 *length, void *outData)",
 );
@@ -266,7 +265,7 @@ export const backend: DarwinKeychainBackend = {
         }
       }
     } finally {
-      SecKeychainSearchRelease(searchOut[0]);
+      CFRelease(searchOut[0]);
     }
 
     return results;

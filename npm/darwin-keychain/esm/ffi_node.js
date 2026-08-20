@@ -36,10 +36,6 @@ const sec = ffi.dlopen("/System/Library/Frameworks/Security.framework/Security",
         arguments: ["pointer", "pointer"],
         return: "i32",
     },
-    SecKeychainSearchRelease: {
-        arguments: ["pointer"],
-        return: "i32",
-    },
     SecKeychainItemCopyAttributesAndData: {
         arguments: ["pointer", "pointer", "pointer", "pointer", "pointer", "pointer"],
         return: "i32",
@@ -231,7 +227,7 @@ export const backend = {
             }
         }
         finally {
-            sec.functions.SecKeychainSearchRelease(searchPtr);
+            cf.functions.CFRelease(searchPtr);
         }
         return results;
     },

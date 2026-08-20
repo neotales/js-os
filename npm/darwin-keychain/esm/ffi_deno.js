@@ -34,10 +34,6 @@ const sec = deno.dlopen("/System/Library/Frameworks/Security.framework/Security"
         parameters: ["pointer", "buffer"],
         result: "i32",
     },
-    SecKeychainSearchRelease: {
-        parameters: ["pointer"],
-        result: "i32",
-    },
     SecKeychainItemCopyAttributesAndData: {
         parameters: ["pointer", "pointer", "pointer", "buffer", "buffer", "pointer"],
         result: "i32",
@@ -236,7 +232,7 @@ export const backend = {
         }
         finally {
             if (searchRef) {
-                sec.symbols.SecKeychainSearchRelease(deno.UnsafePointer.create(searchRef));
+                cf.symbols.CFRelease(deno.UnsafePointer.create(searchRef));
             }
         }
         return results;

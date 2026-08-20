@@ -1256,6 +1256,21 @@ ${source.slice(supported, runtime)}if (Deno.build.os === "darwin") {
 ${source.slice(api)}`;
 }
 
+function darwinKeychainFfi(source: string): string {
+  return source
+    .replace(
+      /\n  SecKeychainSearchRelease: \{\n    parameters: \["pointer"\],\n    result: "i32",\n  \},/,
+      "",
+    )
+    .replaceAll("sec.symbols.SecKeychainSearchRelease(", "cf.symbols.CFRelease(")
+    .replace(
+      'const SecKeychainSearchRelease = sec.func("int SecKeychainSearchRelease(void *searchRef)");\n',
+      "",
+    )
+    .replaceAll("SecKeychainSearchRelease(searchOut[0]);", "CFRelease(searchOut[0]);")
+    .replaceAll("sec.functions.SecKeychainSearchRelease(", "cf.functions.CFRelease(");
+}
+
 function darwinKeychainDocs(source: string, module: string): string {
   if (!source.startsWith("/**\n * @module"))
     source = `/**\n * ${module}\n *\n * @module @neotales/darwin-keychain\n */\n\n${source}`;
@@ -1330,7 +1345,9 @@ async function writeDarwinKeychainPackage(
   await Deno.writeTextFile(
     join(jsr, "ffi_deno.ts"),
     darwinKeychainDocs(
-      (await Deno.readTextFile(join(source, "src", "ffi_deno.ts"))).replaceAll("Deno_", "deno"),
+      darwinKeychainFfi(
+        (await Deno.readTextFile(join(source, "src", "ffi_deno.ts"))).replaceAll("Deno_", "deno"),
+      ),
       "Deno Security.framework FFI backend.",
     ),
   );
@@ -1372,6 +1389,10 @@ async function writeDarwinKeychainPackage(
       .replaceAll("Deno_", "deno")
       .replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
   );
+  for (const file of ["ffi_deno", "ffi_koffi", "ffi_node"]) {
+    const path = join(npm, "src", `${file}.ts`);
+    await Deno.writeTextFile(path, darwinKeychainFfi(await Deno.readTextFile(path)));
+  }
   const tests = join(npm, "tests", "index.test.ts");
   await Deno.writeTextFile(tests, darwinKeychainTests(await Deno.readTextFile(tests)));
   for (const file of ["vault", "types", "ffi_bun", "ffi_deno", "ffi_koffi", "ffi_node"]) {
