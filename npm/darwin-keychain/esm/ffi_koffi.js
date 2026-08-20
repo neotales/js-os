@@ -38,9 +38,8 @@ function cbytes(value) {
     return enc.encode(value);
 }
 function osCheck(status, message) {
-    if (status !== 0) {
+    if (status !== 0)
         throw new Error(`${message} (${status})`);
-    }
 }
 function ptrToBytes(value, length) {
     return koffi.decode(value, koffi.array("uint8", length));
@@ -71,9 +70,8 @@ function findRecord(service, account) {
     const passwordDataOut = [null];
     const itemRefOut = [null];
     const status = SecKeychainFindGenericPassword(null, serviceBytes.length, serviceBytes, accountBytes.length, accountBytes, passwordLengthOut, passwordDataOut, itemRefOut);
-    if (status === ERR_ITEM_NOT_FOUND) {
+    if (status === ERR_ITEM_NOT_FOUND)
         return null;
-    }
     osCheck(status, "SecKeychainFindGenericPassword failed");
     return {
         dataPtr: passwordDataOut[0],
@@ -93,9 +91,8 @@ function getAccountAttribute(itemPtr) {
     const attrsOut = [null];
     const lengthOut = [0];
     const status = SecKeychainItemCopyAttributesAndData(itemPtr, info, null, attrsOut, lengthOut, null);
-    if (status !== 0 || !attrsOut[0]) {
+    if (status !== 0 || !attrsOut[0])
         return "";
-    }
     try {
         const attrs = koffi.decode(attrsOut[0], SecKeychainAttributeList);
         if (attrs.count === 0 || !attrs.attr) {
@@ -122,9 +119,8 @@ function releaseFindResult(found) {
 export const backend = {
     getSecretBytes(service, account) {
         const found = findRecord(service, account);
-        if (!found) {
+        if (!found)
             return null;
-        }
         try {
             return ptrToBytes(found.dataPtr, found.passwordLength);
         }
@@ -152,9 +148,8 @@ export const backend = {
     },
     deleteSecret(service, account) {
         const found = findRecord(service, account);
-        if (!found) {
+        if (!found)
             return false;
-        }
         try {
             osCheck(SecKeychainItemDelete(found.itemPtr), "SecKeychainItemDelete failed");
             return true;
@@ -167,13 +162,11 @@ export const backend = {
         const { list, refs: _refs } = makeServiceAttrList(service);
         const searchOut = [null];
         const status = SecKeychainSearchCreateFromAttributes(null, ITEM_CLASS_GENERIC_PASSWORD, list, searchOut);
-        if (status === ERR_ITEM_NOT_FOUND) {
+        if (status === ERR_ITEM_NOT_FOUND)
             return [];
-        }
         osCheck(status, "SecKeychainSearchCreateFromAttributes failed");
-        if (!searchOut[0]) {
+        if (!searchOut[0])
             return [];
-        }
         const results = [];
         try {
             while (true) {

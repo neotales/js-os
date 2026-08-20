@@ -67,9 +67,8 @@ function cbytes(v: string): Uint8Array {
 }
 
 function osCheck(status: number, message: string): void {
-  if (status !== 0) {
+  if (status !== 0)
     throw new Error(`${message} (${status})`);
-  }
 }
 
 function readPtr(buf: Uint8Array): bigint {
@@ -110,9 +109,8 @@ export const backend: DarwinKeychainBackend = {
       pwData,
       itemRef,
     );
-    if (status === ERR_ITEM_NOT_FOUND) {
+    if (status === ERR_ITEM_NOT_FOUND)
       return null;
-    }
     osCheck(status, "SecKeychainFindGenericPassword failed");
 
     const len = new DataView(pwLen.buffer).getUint32(0, true);
@@ -125,7 +123,8 @@ export const backend: DarwinKeychainBackend = {
       if (dataPtr) {
         sec.symbols.SecKeychainItemFreeContent(null, deno.UnsafePointer.create(dataPtr));
       }
-      if (refPtr) cf.symbols.CFRelease(deno.UnsafePointer.create(refPtr));
+      if (refPtr)
+        cf.symbols.CFRelease(deno.UnsafePointer.create(refPtr));
     }
   },
 
@@ -179,12 +178,14 @@ export const backend: DarwinKeychainBackend = {
       );
       osCheck(add, "SecKeychainAddGenericPassword failed");
       const newRef = readPtr(outRef);
-      if (newRef) cf.symbols.CFRelease(deno.UnsafePointer.create(newRef));
+      if (newRef)
+        cf.symbols.CFRelease(deno.UnsafePointer.create(newRef));
     } finally {
       if (dataPtr) {
         sec.symbols.SecKeychainItemFreeContent(null, deno.UnsafePointer.create(dataPtr));
       }
-      if (refPtr) cf.symbols.CFRelease(deno.UnsafePointer.create(refPtr));
+      if (refPtr)
+        cf.symbols.CFRelease(deno.UnsafePointer.create(refPtr));
     }
   },
 
@@ -204,17 +205,15 @@ export const backend: DarwinKeychainBackend = {
       pwData,
       itemRef,
     );
-    if (status === ERR_ITEM_NOT_FOUND) {
+    if (status === ERR_ITEM_NOT_FOUND)
       return false;
-    }
     osCheck(status, "SecKeychainFindGenericPassword failed");
 
     const refPtr = readPtr(itemRef);
     const dataPtr = readPtr(pwData);
     try {
-      if (!refPtr) {
+      if (!refPtr)
         return false;
-      }
       osCheck(
         sec.symbols.SecKeychainItemDelete(deno.UnsafePointer.create(refPtr)),
         "SecKeychainItemDelete failed",
@@ -224,7 +223,8 @@ export const backend: DarwinKeychainBackend = {
       if (dataPtr) {
         sec.symbols.SecKeychainItemFreeContent(null, deno.UnsafePointer.create(dataPtr));
       }
-      if (refPtr) cf.symbols.CFRelease(deno.UnsafePointer.create(refPtr));
+      if (refPtr)
+        cf.symbols.CFRelease(deno.UnsafePointer.create(refPtr));
     }
   },
 
@@ -245,9 +245,8 @@ export const backend: DarwinKeychainBackend = {
       deno.UnsafePointer.of(list),
       searchRefBuf,
     );
-    if (createStatus === ERR_ITEM_NOT_FOUND) {
+    if (createStatus === ERR_ITEM_NOT_FOUND)
       return [];
-    }
     osCheck(createStatus, "SecKeychainSearchCreateFromAttributes failed");
 
     const searchRef = readPtr(searchRefBuf);
@@ -260,10 +259,12 @@ export const backend: DarwinKeychainBackend = {
           deno.UnsafePointer.create(searchRef),
           itemRefBuf,
         );
-        if (next !== 0) break;
+        if (next !== 0)
+          break;
 
         const itemRef = readPtr(itemRefBuf);
-        if (!itemRef) break;
+        if (!itemRef)
+          break;
         try {
           const tags = new Uint8Array(4);
           new DataView(tags.buffer).setUint32(0, ATTR_ACCOUNT, true);
@@ -272,7 +273,11 @@ export const backend: DarwinKeychainBackend = {
           const iv = new DataView(info.buffer);
           iv.setUint32(0, 1, true);
           iv.setBigUint64(8, BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(tags))), true);
-          iv.setBigUint64(16, BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(fmts))), true);
+          iv.setBigUint64(
+            16,
+            BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(fmts))),
+            true,
+          );
 
           const outAttrs = new Uint8Array(8);
           const outLen = new Uint8Array(4);
@@ -284,7 +289,8 @@ export const backend: DarwinKeychainBackend = {
             outLen,
             null,
           );
-          if (copyStatus !== 0) continue;
+          if (copyStatus !== 0)
+            continue;
 
           const attrsPtr = readPtr(outAttrs);
           let account = "";
@@ -308,9 +314,12 @@ export const backend: DarwinKeychainBackend = {
             }
           }
 
-          if (!account) continue;
+          if (!account)
+
+            continue;
           const secret = this.getSecretBytes(service, account);
-          if (secret === null) continue;
+          if (secret === null)
+            continue;
           results.push({ service, account, secret });
         } finally {
           cf.symbols.CFRelease(deno.UnsafePointer.create(itemRef));

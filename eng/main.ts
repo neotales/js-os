@@ -1278,7 +1278,7 @@ function darwinKeychainFfi(source: string): string {
     .replaceAll('return ptrAddress(koffi.as(value, "void *"));', "return ptrAddress(value);")
     .replaceAll("SecKeychainSearchRelease(searchOut[0]);", "CFRelease(searchOut[0]);")
     .replaceAll("sec.functions.SecKeychainSearchRelease(", "cf.functions.CFRelease(")
-    .replace(/^(\s*)if \(([^)\n]+)\) (return|throw) ([^;]+);$/gm, "$1if ($2) {\n$1  $3 $4;\n$1}");
+    .replace(/^(\s*)if \(([^)\n]+)\) ([^\n;]+);$/gm, "$1if ($2)\n$1  $3;");
 }
 
 function darwinKeychainKoffi(source: string): string {
@@ -1528,7 +1528,7 @@ async function importModule(name: string, replace: boolean): Promise<void> {
   } else {
     await writeDarwinKeychainPackage(name, source, pkg);
   }
-  await run(oxfmt, ["--write", jsrPackage, npmPackage]);
+  await run(oxfmt, ["--write", "--ignore-path", ".prettierignore", jsrPackage, npmPackage]);
   console.log(`Imported split Deno and npm packages for ${name}.`);
 }
 
