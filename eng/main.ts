@@ -1268,6 +1268,10 @@ function darwinKeychainFfi(source: string): string {
       "$1deno.UnsafePointer.of(list)$2",
     )
     .replace(
+      /(deno\.UnsafePointer\.create\(itemRef\),\n\s*)info(,\n\s*null,)/,
+      "$1deno.UnsafePointer.of(info)$2",
+    )
+    .replace(
       'const SecKeychainSearchRelease = sec.func("int SecKeychainSearchRelease(void *searchRef)");\n',
       "",
     )

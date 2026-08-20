@@ -278,7 +278,7 @@ export const backend: DarwinKeychainBackend = {
           const outLen = new Uint8Array(4);
           const copyStatus = sec.symbols.SecKeychainItemCopyAttributesAndData(
             deno.UnsafePointer.create(itemRef),
-            info,
+            deno.UnsafePointer.of(info),
             null,
             outAttrs,
             outLen,
