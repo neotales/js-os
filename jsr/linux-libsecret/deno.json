@@ -1,0 +1,9 @@
+{
+  "name": "@neotales/linux-libsecret",
+  "version": "0.0.0-alpha.0",
+  "description": "Linux secret storage access via libsecret FFI with get/set/delete/list helpers. Deno on Linux only.",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts"
+  }
+}

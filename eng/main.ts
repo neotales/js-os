@@ -113,16 +113,16 @@ async function readPackage(directory: string): Promise<PackageJson> {
 
 function rebrand(content: string): string {
   return content
-    .replaceAll("@neotales/", "@neotales/")
-    .replaceAll("@neotales%2F", "@neotales%2F")
-    .replaceAll("neotales-js", "neotales-js")
-    .replaceAll("github.com/neotales/js", "github.com/neotales/js-os")
-    .replaceAll("badge.fury.io/gh/neotales%2Fjs", "badge.fury.io/gh/neotales%2Fjs-os")
+    .replaceAll("@neostd/", "@neotales/")
+    .replaceAll("@neostd%2F", "@neotales%2F")
+    .replaceAll("neostd-js", "neotales-js")
+    .replaceAll("github.com/neostd/js", "github.com/neotales/js-os")
+    .replaceAll("badge.fury.io/gh/neostd%2Fjs", "badge.fury.io/gh/neotales%2Fjs-os")
     .replaceAll(
-      "raw.githubusercontent.com/neotales/js/refs/heads/dev/eng/assets/logo.png",
+      "raw.githubusercontent.com/neostd/js/refs/heads/dev/eng/assets/logo.png",
       "raw.githubusercontent.com/neotales/js-std/refs/heads/dev/eng/assets/logo.png",
     )
-    .replaceAll("raw.githubusercontent.com/neotales/js", "raw.githubusercontent.com/neotales/js-os");
+    .replaceAll("raw.githubusercontent.com/neostd/js", "raw.githubusercontent.com/neotales/js-os");
 }
 
 async function rewriteTree(
@@ -154,10 +154,10 @@ function npmExports(pkg: PackageJson): Record<string, unknown> {
 function npmManifest(pkg: PackageJson): Record<string, unknown> {
   const koffi = pkg.peerDependencies?.koffi;
   return {
-    name: pkg.name.replace("@neotales/", "@neotales/"),
+    name: pkg.name.replace("@neostd/", "@neotales/"),
     version: pkg.version,
     description: pkg.description,
-    keywords: pkg.keywords?.filter((keyword) => keyword !== "neotales"),
+    keywords: pkg.keywords?.filter((keyword) => keyword !== "neostd"),
     license: pkg.license ?? "MIT",
     type: "module",
     files: ["esm", "types"],
@@ -166,7 +166,7 @@ function npmManifest(pkg: PackageJson): Record<string, unknown> {
     repository: {
       type: "git",
       url: "git+https://github.com/neotales/js-os.git",
-      directory: `npm/${pkg.name.replace("@neotales/", "")}`,
+      directory: `npm/${pkg.name.replace("@neostd/", "")}`,
     },
     bugs: { url: "https://github.com/neotales/js-os/issues" },
     homepage: "https://github.com/neotales/js-os",
@@ -476,7 +476,7 @@ export function isElevated(cache = true): boolean {
     join(destination, "deno.json"),
     JSON.stringify(
       {
-        name: pkg.name.replace("@neotales/", "@neotales/"),
+        name: pkg.name.replace("@neostd/", "@neotales/"),
         version: pkg.version,
         description: `${pkg.description} Deno only.`,
         license: pkg.license,
@@ -963,7 +963,7 @@ Deno.test("registry reads Windows version values", { ignore: Deno.build.os !== "
     join(destination, "deno.json"),
     JSON.stringify(
       {
-        name: pkg.name.replace("@neotales/", "@neotales/"),
+        name: pkg.name.replace("@neostd/", "@neotales/"),
         version: pkg.version,
         description: `${pkg.description} Deno on Windows only.`,
         license: pkg.license,
@@ -1164,7 +1164,7 @@ Deno.test("credential listing is safe on Windows", { ignore: Deno.build.os !== "
     join(destination, "deno.json"),
     JSON.stringify(
       {
-        name: pkg.name.replace("@neotales/", "@neotales/"),
+        name: pkg.name.replace("@neostd/", "@neotales/"),
         version: pkg.version,
         description: `${pkg.description} Deno on Windows only.`,
         license: pkg.license,
@@ -1417,7 +1417,7 @@ async function writeDarwinKeychainPackage(
     join(jsr, "deno.json"),
     JSON.stringify(
       {
-        name: pkg.name.replace("@neotales/", "@neotales/"),
+        name: pkg.name.replace("@neostd/", "@neotales/"),
         version: pkg.version,
         description: `${pkg.description} Deno on macOS only.`,
         license: pkg.license,
@@ -1475,6 +1475,140 @@ async function writeDarwinKeychainPackage(
   );
 }
 
+function linuxLibsecretDenoVault(source: string): string {
+  const globals = source.indexOf("const globals =");
+  const supported = source.indexOf("let isSupported = false;");
+  const runtime = source.indexOf("if (globals.process?.platform", supported);
+  const api = source.indexOf("/**\n * Returns whether", runtime);
+  if (globals === -1 || supported === -1 || runtime === -1 || api === -1) {
+    throw new Error("Unexpected linux-libsecret source layout.");
+  }
+  return `${source.slice(0, globals)}const decoder = new TextDecoder();
+const encoder = new TextEncoder();
+
+${source.slice(supported, runtime)}if (Deno.build.os === "linux") {
+  try {
+    driver = (await import("./ffi_deno.ts")).backend;
+    isSupported = true;
+  } catch {
+    // Deno requires --allow-ffi and loadable libsecret dependencies.
+  }
+}
+
+${source.slice(api)}`;
+}
+
+function expandSingleLineIfBodies(source: string): string {
+  return source.replace(/^(\s*)if \(([^)\n]+)\) ([^\n;]+);$/gm, "$1if ($2)\n$1  $3;");
+}
+
+function linuxLibsecretFfi(source: string): string {
+  return expandSingleLineIfBodies(
+    source
+      .replaceAll("const secret = ", "const libsecretApi = ")
+      .replace(/\bsecret\.symbols\./g, "libsecretApi.symbols."),
+  );
+}
+
+async function writeLinuxLibsecretPackage(
+  name: string,
+  source: string,
+  pkg: PackageJson,
+): Promise<void> {
+  const jsr = join(jsrDir, name);
+  await Deno.mkdir(jsr, { recursive: true });
+  await Deno.copyFile(join(source, "LICENSE.md"), join(jsr, "LICENSE.md"));
+  await Deno.writeTextFile(
+    join(jsr, "README.md"),
+    rebrand(await Deno.readTextFile(join(source, "README.md"))),
+  );
+  await Deno.writeTextFile(
+    join(jsr, "types.ts"),
+    rebrand(await Deno.readTextFile(join(source, "src", "types.ts"))),
+  );
+  await Deno.writeTextFile(
+    join(jsr, "ffi_deno.ts"),
+    linuxLibsecretFfi(
+      rebrand(await Deno.readTextFile(join(source, "src", "ffi_deno.ts"))).replaceAll(
+        "Deno_",
+        "deno",
+      ),
+    ),
+  );
+  await Deno.writeTextFile(
+    join(jsr, "vault.ts"),
+    rebrand(linuxLibsecretDenoVault(await Deno.readTextFile(join(source, "src", "vault.ts")))),
+  );
+  await Deno.writeTextFile(
+    join(jsr, "mod.ts"),
+    rebrand(await Deno.readTextFile(join(source, "src", "index.ts"))),
+  );
+  await Deno.writeTextFile(
+    join(jsr, "mod.test.ts"),
+    `import { isLinuxLibsecretAvailable } from "./mod.ts";
+
+Deno.test("libsecret availability reports a boolean", () => {
+  if (typeof isLinuxLibsecretAvailable() !== "boolean") {
+    throw new Error("Unexpected availability");
+  }
+});
+`,
+  );
+  await Deno.writeTextFile(
+    join(jsr, "deno.json"),
+    JSON.stringify(
+      {
+        name: pkg.name.replace("@neostd/", "@neotales/"),
+        version: pkg.version,
+        description: `${pkg.description} Deno on Linux only.`,
+        license: pkg.license,
+        exports: { ".": "./mod.ts" },
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+
+  const npm = join(npmDir, name);
+  await copy(source, npm, { overwrite: false });
+  for (const file of ["package.json", "vite.config.ts", "tsconfig.json", "esm"]) {
+    await Deno.remove(join(npm, file), { recursive: true }).catch(() => undefined);
+  }
+  await rewriteTree(npm, /\.(?:ts|md)$/, (content) =>
+    rebrand(content)
+      .replaceAll("Deno_", "deno")
+      .replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
+  );
+  for (const file of ["ffi_bun", "ffi_deno", "ffi_koffi", "ffi_node"]) {
+    const path = join(npm, "src", `${file}.ts`);
+    const content = await Deno.readTextFile(path);
+    await Deno.writeTextFile(
+      path,
+      file === "ffi_deno" ? linuxLibsecretFfi(content) : expandSingleLineIfBodies(content),
+    );
+  }
+  const nodeFfi = join(npm, "src", "ffi_node.ts");
+  await Deno.writeTextFile(
+    nodeFfi,
+    (await Deno.readTextFile(nodeFfi))
+      .replaceAll("parameters:", "arguments:")
+      .replaceAll("result:", "return:"),
+  );
+  await Deno.writeTextFile(
+    join(npm, "package.json"),
+    JSON.stringify(npmManifest(pkg), null, 2) + "\n",
+  );
+  await Deno.writeTextFile(join(npm, ".npmignore"), npmIgnore());
+  await Deno.writeTextFile(
+    join(npm, "tsconfig.json"),
+    JSON.stringify(npmTsConfig(), null, 2) + "\n",
+  );
+  await Deno.writeTextFile(
+    join(npm, "tsconfig.test.json"),
+    JSON.stringify(npmTestTsConfig(), null, 2) + "\n",
+  );
+}
+
 async function upstreamModules(): Promise<string[]> {
   const modules: string[] = [];
   for await (const entry of Deno.readDir(upstream)) {
@@ -1498,10 +1632,11 @@ async function importModule(name: string, replace: boolean): Promise<void> {
     name !== "is-elevated" &&
     name !== "win-registry" &&
     name !== "win-cred" &&
-    name !== "darwin-keychain"
+    name !== "darwin-keychain" &&
+    name !== "linux-libsecret"
   ) {
     throw new Error(
-      `The Deno-only migration is defined for is-elevated, win-registry, win-cred, and darwin-keychain only; review it before importing ${name}.`,
+      `The Deno-only migration is defined for is-elevated, win-registry, win-cred, darwin-keychain, and linux-libsecret only; review it before importing ${name}.`,
     );
   }
   const source = join(upstream, name);
@@ -1525,8 +1660,10 @@ async function importModule(name: string, replace: boolean): Promise<void> {
   } else if (name === "win-cred") {
     await writeWinCredDenoPackage(name, source, pkg);
     await writeWinCredNpmPackage(name, source, pkg);
-  } else {
+  } else if (name === "darwin-keychain") {
     await writeDarwinKeychainPackage(name, source, pkg);
+  } else {
+    await writeLinuxLibsecretPackage(name, source, pkg);
   }
   await run(oxfmt, ["--write", "--ignore-path", ".prettierignore", jsrPackage, npmPackage]);
   console.log(`Imported split Deno and npm packages for ${name}.`);
