@@ -1233,6 +1233,153 @@ async function writeWinCredNpmPackage(
   );
 }
 
+function darwinKeychainDenoVault(source: string): string {
+  const globals = source.indexOf("const globals =");
+  const supported = source.indexOf("let isSupported = false;");
+  const runtime = source.indexOf("if (globals.process?.platform", supported);
+  const api = source.indexOf("/**\n * Returns whether", runtime);
+  if (globals === -1 || supported === -1 || runtime === -1 || api === -1) {
+    throw new Error("Unexpected darwin-keychain source layout.");
+  }
+  return `${source.slice(0, globals)}const decoder = new TextDecoder();
+const encoder = new TextEncoder();
+
+${source.slice(supported, runtime)}if (Deno.build.os === "darwin") {
+  try {
+    driver = (await import("./ffi_deno.ts")).backend;
+    isSupported = true;
+  } catch {
+    // Deno requires --allow-ffi and a loadable Security.framework backend.
+  }
+}
+
+${source.slice(api)}`;
+}
+
+function darwinKeychainDocs(source: string, module: string): string {
+  if (!source.startsWith("/**\n * @module"))
+    source = `/**\n * ${module}\n *\n * @module @neotales/darwin-keychain\n */\n\n${source}`;
+  return source
+    .replace(
+      "/** Secret record returned by keychain listing operations. */",
+      '/**\n * Secret record returned by keychain listing operations.\n *\n * @example\n * const record: SecretRecord = { service: "service", account: "account", secret: new Uint8Array() };\n */',
+    )
+    .replace(
+      " * @returns `true` when generic password operations are supported.\n */\nexport function isDarwinKeychainAvailable",
+      ' * @returns `true` when generic password operations are supported.\n * @example\n * if (isDarwinKeychainAvailable()) console.log("Keychain is available");\n */\nexport function isDarwinKeychainAvailable',
+    )
+    .replace(
+      " * @returns The stored secret string, or `null` when missing.\n */\nexport function readSecret",
+      ' * @returns The stored secret string, or `null` when missing.\n * @example\n * const secret = readSecret("service", "account");\n */\nexport function readSecret',
+    )
+    .replace(
+      " * @returns The stored secret bytes, or `null` when missing.\n */\nexport function getSecretBytes",
+      ' * @returns The stored secret bytes, or `null` when missing.\n * @example\n * const bytes = getSecretBytes("service", "account");\n */\nexport function getSecretBytes',
+    )
+    .replace(
+      " * @param secret Secret string or bytes.\n */\nexport function saveSecret",
+      ' * @param secret Secret string or bytes.\n * @returns Nothing.\n * @example\n * saveSecret("service", "account", "secret");\n */\nexport function saveSecret',
+    )
+    .replace(
+      " * @returns `true` when a record was deleted.\n */\nexport function removeSecret",
+      ' * @returns `true` when a record was deleted.\n * @example\n * removeSecret("service", "account");\n */\nexport function removeSecret',
+    )
+    .replace(
+      " * @returns Decoded records for the given service.\n */\nexport function listSecrets",
+      ' * @returns Decoded records for the given service.\n * @example\n * const records = listSecrets("service");\n */\nexport function listSecrets',
+    );
+}
+
+async function writeDarwinKeychainPackage(
+  name: string,
+  source: string,
+  pkg: PackageJson,
+): Promise<void> {
+  const jsr = join(jsrDir, name);
+  await Deno.mkdir(jsr, { recursive: true });
+  await Deno.copyFile(join(source, "LICENSE.md"), join(jsr, "LICENSE.md"));
+  await Deno.copyFile(join(source, "README.md"), join(jsr, "README.md"));
+  await Deno.writeTextFile(
+    join(jsr, "types.ts"),
+    darwinKeychainDocs(
+      await Deno.readTextFile(join(source, "src", "types.ts")),
+      "Shared keychain types.",
+    ),
+  );
+  await Deno.writeTextFile(
+    join(jsr, "ffi_deno.ts"),
+    darwinKeychainDocs(
+      (await Deno.readTextFile(join(source, "src", "ffi_deno.ts"))).replaceAll("Deno_", "deno"),
+      "Deno Security.framework FFI backend.",
+    ),
+  );
+  await Deno.writeTextFile(
+    join(jsr, "vault.ts"),
+    darwinKeychainDocs(
+      darwinKeychainDenoVault(await Deno.readTextFile(join(source, "src", "vault.ts"))),
+      "macOS keychain vault helpers.",
+    ),
+  );
+  await Deno.writeTextFile(
+    join(jsr, "mod.ts"),
+    rebrand(await Deno.readTextFile(join(source, "src", "index.ts"))),
+  );
+  await Deno.writeTextFile(
+    join(jsr, "mod.test.ts"),
+    `import { isDarwinKeychainAvailable } from "./mod.ts";\n\nDeno.test("keychain availability matches the platform", () => {\n  if (isDarwinKeychainAvailable() !== (Deno.build.os === "darwin")) throw new Error("Unexpected availability");\n});\n`,
+  );
+  await Deno.writeTextFile(
+    join(jsr, "deno.json"),
+    JSON.stringify(
+      {
+        name: pkg.name.replace("@neostd/", "@neotales/"),
+        version: pkg.version,
+        description: `${pkg.description} Deno on macOS only.`,
+        license: pkg.license,
+        exports: { ".": "./mod.ts" },
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+  const npm = join(npmDir, name);
+  await copy(source, npm, { overwrite: false });
+  for (const file of ["package.json", "vite.config.ts", "tsconfig.json", "esm"])
+    await Deno.remove(join(npm, file), { recursive: true }).catch(() => undefined);
+  await rewriteTree(npm, /\.(?:ts|md)$/, (content) =>
+    rebrand(content)
+      .replaceAll("Deno_", "deno")
+      .replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
+  );
+  for (const file of ["vault", "types", "ffi_bun", "ffi_deno", "ffi_koffi", "ffi_node"]) {
+    const path = join(npm, "src", `${file}.ts`);
+    await Deno.writeTextFile(
+      path,
+      darwinKeychainDocs(await Deno.readTextFile(path), `darwin-keychain ${file} module.`),
+    );
+  }
+  const nodeFfi = join(npm, "src", "ffi_node.ts");
+  await Deno.writeTextFile(
+    nodeFfi,
+    (await Deno.readTextFile(nodeFfi))
+      .replaceAll("parameters:", "arguments:")
+      .replaceAll("result:", "return:"),
+  );
+  await Deno.writeTextFile(
+    join(npm, "package.json"),
+    JSON.stringify(npmManifest(pkg), null, 2) + "\n",
+  );
+  await Deno.writeTextFile(join(npm, ".npmignore"), npmIgnore());
+  await Deno.writeTextFile(
+    join(npm, "tsconfig.json"),
+    JSON.stringify(npmTsConfig(), null, 2) + "\n",
+  );
+  await Deno.writeTextFile(
+    join(npm, "tsconfig.test.json"),
+    JSON.stringify(npmTestTsConfig(), null, 2) + "\n",
+  );
+}
+
 async function upstreamModules(): Promise<string[]> {
   const modules: string[] = [];
   for await (const entry of Deno.readDir(upstream)) {
@@ -1252,9 +1399,14 @@ async function importedModules(): Promise<string[]> {
 }
 
 async function importModule(name: string, replace: boolean): Promise<void> {
-  if (name !== "is-elevated" && name !== "win-registry" && name !== "win-cred") {
+  if (
+    name !== "is-elevated" &&
+    name !== "win-registry" &&
+    name !== "win-cred" &&
+    name !== "darwin-keychain"
+  ) {
     throw new Error(
-      `The Deno-only migration is defined for is-elevated, win-registry, and win-cred only; review it before importing ${name}.`,
+      `The Deno-only migration is defined for is-elevated, win-registry, win-cred, and darwin-keychain only; review it before importing ${name}.`,
     );
   }
   const source = join(upstream, name);
@@ -1275,9 +1427,11 @@ async function importModule(name: string, replace: boolean): Promise<void> {
   } else if (name === "win-registry") {
     await writeWinRegistryDenoPackage(name, source, pkg);
     await writeWinRegistryNpmPackage(name, source, pkg);
-  } else {
+  } else if (name === "win-cred") {
     await writeWinCredDenoPackage(name, source, pkg);
     await writeWinCredNpmPackage(name, source, pkg);
+  } else {
+    await writeDarwinKeychainPackage(name, source, pkg);
   }
   await run(oxfmt, ["--write", jsrPackage, npmPackage]);
   console.log(`Imported split Deno and npm packages for ${name}.`);

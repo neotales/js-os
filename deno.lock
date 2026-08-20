@@ -42,6 +42,15 @@
           "jsr:@std/path@^1.1.3"
         ]
       },
+      "npm/darwin-keychain": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@types/bun@^1.3.14",
+            "npm:@types/node@^25.9.3",
+            "npm:typescript@^6.0.3"
+          ]
+        }
+      },
       "npm/is-elevated": {
         "packageJson": {
           "dependencies": [

@@ -1,0 +1,54 @@
+{
+  "name": "@neotales/darwin-keychain",
+  "version": "0.0.0-alpha.0",
+  "description": "macOS keychain access via Security.framework FFI with get/set/delete/list helpers.",
+  "keywords": [
+    "darwin",
+    "keychain",
+    "macos",
+    "security-framework"
+  ],
+  "homepage": "https://github.com/neotales/js-os",
+  "bugs": {
+    "url": "https://github.com/neotales/js-os/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neotales/js-os.git",
+    "directory": "npm/darwin-keychain"
+  },
+  "files": [
+    "esm",
+    "types"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./esm/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:test": "tsc -p tsconfig.test.json",
+    "test": "pnpm run build:test && node --test .test/tests/*.test.js",
+    "test:ffi": "pnpm run build:test && node --experimental-ffi --test .test/tests/*.test.js",
+    "test:bun": "pnpm run build:test && bun test ./.test/tests",
+    "test:deno": "pnpm run build:test && deno test -A .test/tests"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3"
+  },
+  "optionalDependencies": {
+    "koffi": "^2.9.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
