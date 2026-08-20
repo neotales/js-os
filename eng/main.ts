@@ -1264,11 +1264,17 @@ function darwinKeychainFfi(source: string): string {
     )
     .replaceAll("sec.symbols.SecKeychainSearchRelease(", "cf.symbols.CFRelease(")
     .replace(
+      /(ITEM_CLASS_GENERIC_PASSWORD,\n\s*)list(,\n\s*searchRefBuf,)/,
+      "$1deno.UnsafePointer.of(list)$2",
+    )
+    .replace(
       'const SecKeychainSearchRelease = sec.func("int SecKeychainSearchRelease(void *searchRef)");\n',
       "",
     )
+    .replaceAll('return ptrAddress(koffi.as(value, "void *"));', "return ptrAddress(value);")
     .replaceAll("SecKeychainSearchRelease(searchOut[0]);", "CFRelease(searchOut[0]);")
-    .replaceAll("sec.functions.SecKeychainSearchRelease(", "cf.functions.CFRelease(");
+    .replaceAll("sec.functions.SecKeychainSearchRelease(", "cf.functions.CFRelease(")
+    .replace(/^(\s*)if \(([^)\n]+)\) (return|throw) ([^;]+);$/gm, "$1if ($2) {\n$1  $3 $4;\n$1}");
 }
 
 function darwinKeychainDocs(source: string, module: string): string {
@@ -1322,7 +1328,9 @@ function darwinKeychainTests(source: string): string {
         return;
       }
       strictEqual(getSecretBytes(service, account) instanceof Uint8Array, true);`;
-  if (!source.includes(original)) throw new Error("Unexpected darwin-keychain test layout.");
+  if (!source.includes(original)) {
+    throw new Error("Unexpected darwin-keychain test layout.");
+  }
   return source.replace(original, replacement);
 }
 

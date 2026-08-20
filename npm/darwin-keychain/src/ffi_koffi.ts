@@ -54,7 +54,9 @@ function cbytes(value: string): Uint8Array {
 }
 
 function osCheck(status: number, message: string): void {
-  if (status !== 0) throw new Error(`${message} (${status})`);
+  if (status !== 0) {
+    throw new Error(`${message} (${status})`);
+  }
 }
 
 function ptrToBytes(value: unknown, length: number): Uint8Array {
@@ -77,7 +79,7 @@ function readPtr(address: number, offset: number): unknown {
 }
 
 function rawPtr(value: Uint8Array): number {
-  return ptrAddress(koffi.as(value, "void *"));
+  return ptrAddress(value);
 }
 
 function makeServiceAttrList(service: string): { list: Uint8Array; refs: Uint8Array[] } {
@@ -120,7 +122,9 @@ function findRecord(
     passwordDataOut,
     itemRefOut,
   );
-  if (status === ERR_ITEM_NOT_FOUND) return null;
+  if (status === ERR_ITEM_NOT_FOUND) {
+    return null;
+  }
   osCheck(status, "SecKeychainFindGenericPassword failed");
 
   return {
@@ -151,13 +155,17 @@ function getAccountAttribute(itemPtr: unknown): string {
     lengthOut,
     null,
   );
-  if (status !== 0 || !attrsOut[0]) return "";
+  if (status !== 0 || !attrsOut[0]) {
+    return "";
+  }
 
   try {
     const attrsAddress = ptrAddress(attrsOut[0]);
     if (readU32(attrsAddress, 0) === 0) return "";
     const attrsArrayPtr = readPtr(attrsAddress, 8);
-    if (!attrsArrayPtr) return "";
+    if (!attrsArrayPtr) {
+      return "";
+    }
 
     const attrsArrayAddress =
       typeof attrsArrayPtr === "number" ? attrsArrayPtr : ptrAddress(attrsArrayPtr);
@@ -165,7 +173,9 @@ function getAccountAttribute(itemPtr: unknown): string {
 
     const length = readU32(attrsArrayAddress, 4);
     const dataPtr = readPtr(attrsArrayAddress, 8);
-    if (!dataPtr || length === 0) return "";
+    if (!dataPtr || length === 0) {
+      return "";
+    }
 
     return dec.decode(ptrToBytes(dataPtr, length));
   } finally {
@@ -182,7 +192,9 @@ function releaseFindResult(found: { dataPtr: unknown; itemPtr: unknown } | null)
 export const backend: DarwinKeychainBackend = {
   getSecretBytes(service: string, account: string): Uint8Array | null {
     const found = findRecord(service, account);
-    if (!found) return null;
+    if (!found) {
+      return null;
+    }
     try {
       return ptrToBytes(found.dataPtr, found.passwordLength);
     } finally {
@@ -225,7 +237,9 @@ export const backend: DarwinKeychainBackend = {
 
   deleteSecret(service: string, account: string): boolean {
     const found = findRecord(service, account);
-    if (!found) return false;
+    if (!found) {
+      return false;
+    }
     try {
       osCheck(SecKeychainItemDelete(found.itemPtr), "SecKeychainItemDelete failed");
       return true;
@@ -243,9 +257,13 @@ export const backend: DarwinKeychainBackend = {
       list,
       searchOut,
     );
-    if (status === ERR_ITEM_NOT_FOUND) return [];
+    if (status === ERR_ITEM_NOT_FOUND) {
+      return [];
+    }
     osCheck(status, "SecKeychainSearchCreateFromAttributes failed");
-    if (!searchOut[0]) return [];
+    if (!searchOut[0]) {
+      return [];
+    }
 
     const results: SecretRecord[] = [];
     try {

@@ -60,8 +60,9 @@ function cbytes(value) {
     return enc.encode(value);
 }
 function osCheck(status, message) {
-    if (status !== 0)
+    if (status !== 0) {
         throw new Error(`${message} (${status})`);
+    }
 }
 function readPtr(buf) {
     return new DataView(buf.buffer).getBigUint64(0, true);
@@ -95,8 +96,9 @@ function findRecord(service, account) {
     const pwDataBuf = new Uint8Array(8);
     const itemRefBuf = new Uint8Array(8);
     const status = sec.functions.SecKeychainFindGenericPassword(null, serviceBytes.length, serviceBytes, accountBytes.length, accountBytes, pwLenBuf, pwDataBuf, itemRefBuf);
-    if (status === ERR_ITEM_NOT_FOUND)
+    if (status === ERR_ITEM_NOT_FOUND) {
         return null;
+    }
     osCheck(status, "SecKeychainFindGenericPassword failed");
     return {
         dataPtr: readPtr(pwDataBuf),
@@ -116,23 +118,28 @@ function getAccountAttribute(itemPtr) {
     const outAttrs = new Uint8Array(8);
     const outLen = new Uint8Array(4);
     const status = sec.functions.SecKeychainItemCopyAttributesAndData(itemPtr, info, null, outAttrs, outLen, null);
-    if (status !== 0)
+    if (status !== 0) {
         return "";
+    }
     const attrsPtr = readPtr(outAttrs);
-    if (!attrsPtr)
+    if (!attrsPtr) {
         return "";
+    }
     try {
         const count = readU32(attrsPtr, 0);
-        if (count === 0)
+        if (count === 0) {
             return "";
+        }
         const attrsArrPtr = readU64(attrsPtr, 8);
         const attrTag = readU32(attrsArrPtr, 0);
-        if (attrTag !== ATTR_ACCOUNT)
+        if (attrTag !== ATTR_ACCOUNT) {
             return "";
+        }
         const len = readU32(attrsArrPtr, 4);
         const dataPtr = readU64(attrsArrPtr, 8);
-        if (!dataPtr || len === 0)
+        if (!dataPtr || len === 0) {
             return "";
+        }
         return new TextDecoder().decode(ptrToBytes(dataPtr, len));
     }
     finally {
@@ -152,8 +159,9 @@ function releaseFindResult(found) {
 export const backend = {
     getSecretBytes(service, account) {
         const found = findRecord(service, account);
-        if (!found)
+        if (!found) {
             return null;
+        }
         try {
             return ptrToBytes(found.dataPtr, found.passwordLength);
         }
@@ -182,8 +190,9 @@ export const backend = {
     },
     deleteSecret(service, account) {
         const found = findRecord(service, account);
-        if (!found)
+        if (!found) {
             return false;
+        }
         try {
             osCheck(sec.functions.SecKeychainItemDelete(found.itemPtr), "SecKeychainItemDelete failed");
             return true;
@@ -196,12 +205,14 @@ export const backend = {
         const { list, refs: _refs } = makeServiceAttrList(service);
         const searchOut = new Uint8Array(8);
         const status = sec.functions.SecKeychainSearchCreateFromAttributes(null, ITEM_CLASS_GENERIC_PASSWORD, list, searchOut);
-        if (status === ERR_ITEM_NOT_FOUND)
+        if (status === ERR_ITEM_NOT_FOUND) {
             return [];
+        }
         osCheck(status, "SecKeychainSearchCreateFromAttributes failed");
         const searchPtr = readPtr(searchOut);
-        if (!searchPtr)
+        if (!searchPtr) {
             return [];
+        }
         const results = [];
         try {
             while (true) {

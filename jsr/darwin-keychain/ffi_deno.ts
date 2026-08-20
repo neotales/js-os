@@ -67,7 +67,9 @@ function cbytes(v: string): Uint8Array {
 }
 
 function osCheck(status: number, message: string): void {
-  if (status !== 0) throw new Error(`${message} (${status})`);
+  if (status !== 0) {
+    throw new Error(`${message} (${status})`);
+  }
 }
 
 function readPtr(buf: Uint8Array): bigint {
@@ -108,7 +110,9 @@ export const backend: DarwinKeychainBackend = {
       pwData,
       itemRef,
     );
-    if (status === ERR_ITEM_NOT_FOUND) return null;
+    if (status === ERR_ITEM_NOT_FOUND) {
+      return null;
+    }
     osCheck(status, "SecKeychainFindGenericPassword failed");
 
     const len = new DataView(pwLen.buffer).getUint32(0, true);
@@ -200,13 +204,17 @@ export const backend: DarwinKeychainBackend = {
       pwData,
       itemRef,
     );
-    if (status === ERR_ITEM_NOT_FOUND) return false;
+    if (status === ERR_ITEM_NOT_FOUND) {
+      return false;
+    }
     osCheck(status, "SecKeychainFindGenericPassword failed");
 
     const refPtr = readPtr(itemRef);
     const dataPtr = readPtr(pwData);
     try {
-      if (!refPtr) return false;
+      if (!refPtr) {
+        return false;
+      }
       osCheck(
         sec.symbols.SecKeychainItemDelete(deno.UnsafePointer.create(refPtr)),
         "SecKeychainItemDelete failed",
@@ -234,10 +242,12 @@ export const backend: DarwinKeychainBackend = {
     const createStatus = sec.symbols.SecKeychainSearchCreateFromAttributes(
       null,
       ITEM_CLASS_GENERIC_PASSWORD,
-      list,
+      deno.UnsafePointer.of(list),
       searchRefBuf,
     );
-    if (createStatus === ERR_ITEM_NOT_FOUND) return [];
+    if (createStatus === ERR_ITEM_NOT_FOUND) {
+      return [];
+    }
     osCheck(createStatus, "SecKeychainSearchCreateFromAttributes failed");
 
     const searchRef = readPtr(searchRefBuf);

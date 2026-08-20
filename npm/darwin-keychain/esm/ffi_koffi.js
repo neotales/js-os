@@ -29,8 +29,9 @@ function cbytes(value) {
     return enc.encode(value);
 }
 function osCheck(status, message) {
-    if (status !== 0)
+    if (status !== 0) {
         throw new Error(`${message} (${status})`);
+    }
 }
 function ptrToBytes(value, length) {
     return koffi.decode(value, koffi.array("uint8", length));
@@ -48,7 +49,7 @@ function readPtr(address, offset) {
     return ptr === 0n ? null : Number(ptr);
 }
 function rawPtr(value) {
-    return ptrAddress(koffi.as(value, "void *"));
+    return ptrAddress(value);
 }
 function makeServiceAttrList(service) {
     const serviceBytes = cbytes(service);
@@ -70,8 +71,9 @@ function findRecord(service, account) {
     const passwordDataOut = [null];
     const itemRefOut = [null];
     const status = SecKeychainFindGenericPassword(null, serviceBytes.length, serviceBytes, accountBytes.length, accountBytes, passwordLengthOut, passwordDataOut, itemRefOut);
-    if (status === ERR_ITEM_NOT_FOUND)
+    if (status === ERR_ITEM_NOT_FOUND) {
         return null;
+    }
     osCheck(status, "SecKeychainFindGenericPassword failed");
     return {
         dataPtr: passwordDataOut[0],
@@ -91,22 +93,25 @@ function getAccountAttribute(itemPtr) {
     const attrsOut = [null];
     const lengthOut = [0];
     const status = SecKeychainItemCopyAttributesAndData(itemPtr, info, null, attrsOut, lengthOut, null);
-    if (status !== 0 || !attrsOut[0])
+    if (status !== 0 || !attrsOut[0]) {
         return "";
+    }
     try {
         const attrsAddress = ptrAddress(attrsOut[0]);
         if (readU32(attrsAddress, 0) === 0)
             return "";
         const attrsArrayPtr = readPtr(attrsAddress, 8);
-        if (!attrsArrayPtr)
+        if (!attrsArrayPtr) {
             return "";
+        }
         const attrsArrayAddress = typeof attrsArrayPtr === "number" ? attrsArrayPtr : ptrAddress(attrsArrayPtr);
         if (readU32(attrsArrayAddress, 0) !== ATTR_ACCOUNT)
             return "";
         const length = readU32(attrsArrayAddress, 4);
         const dataPtr = readPtr(attrsArrayAddress, 8);
-        if (!dataPtr || length === 0)
+        if (!dataPtr || length === 0) {
             return "";
+        }
         return dec.decode(ptrToBytes(dataPtr, length));
     }
     finally {
@@ -124,8 +129,9 @@ function releaseFindResult(found) {
 export const backend = {
     getSecretBytes(service, account) {
         const found = findRecord(service, account);
-        if (!found)
+        if (!found) {
             return null;
+        }
         try {
             return ptrToBytes(found.dataPtr, found.passwordLength);
         }
@@ -153,8 +159,9 @@ export const backend = {
     },
     deleteSecret(service, account) {
         const found = findRecord(service, account);
-        if (!found)
+        if (!found) {
             return false;
+        }
         try {
             osCheck(SecKeychainItemDelete(found.itemPtr), "SecKeychainItemDelete failed");
             return true;
@@ -167,11 +174,13 @@ export const backend = {
         const { list, refs: _refs } = makeServiceAttrList(service);
         const searchOut = [null];
         const status = SecKeychainSearchCreateFromAttributes(null, ITEM_CLASS_GENERIC_PASSWORD, list, searchOut);
-        if (status === ERR_ITEM_NOT_FOUND)
+        if (status === ERR_ITEM_NOT_FOUND) {
             return [];
+        }
         osCheck(status, "SecKeychainSearchCreateFromAttributes failed");
-        if (!searchOut[0])
+        if (!searchOut[0]) {
             return [];
+        }
         const results = [];
         try {
             while (true) {

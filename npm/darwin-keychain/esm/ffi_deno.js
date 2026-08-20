@@ -58,8 +58,9 @@ function cbytes(v) {
     return enc.encode(v);
 }
 function osCheck(status, message) {
-    if (status !== 0)
+    if (status !== 0) {
         throw new Error(`${message} (${status})`);
+    }
 }
 function readPtr(buf) {
     return new DataView(buf.buffer).getBigUint64(0, true);
@@ -88,8 +89,9 @@ export const backend = {
         const pwData = new Uint8Array(8);
         const itemRef = new Uint8Array(8);
         const status = sec.symbols.SecKeychainFindGenericPassword(null, serviceB.length, serviceB, accountB.length, accountB, pwLen, pwData, itemRef);
-        if (status === ERR_ITEM_NOT_FOUND)
+        if (status === ERR_ITEM_NOT_FOUND) {
             return null;
+        }
         osCheck(status, "SecKeychainFindGenericPassword failed");
         const len = new DataView(pwLen.buffer).getUint32(0, true);
         const dataPtr = readPtr(pwData);
@@ -145,14 +147,16 @@ export const backend = {
         const pwData = new Uint8Array(8);
         const itemRef = new Uint8Array(8);
         const status = sec.symbols.SecKeychainFindGenericPassword(null, serviceB.length, serviceB, accountB.length, accountB, pwLen, pwData, itemRef);
-        if (status === ERR_ITEM_NOT_FOUND)
+        if (status === ERR_ITEM_NOT_FOUND) {
             return false;
+        }
         osCheck(status, "SecKeychainFindGenericPassword failed");
         const refPtr = readPtr(itemRef);
         const dataPtr = readPtr(pwData);
         try {
-            if (!refPtr)
+            if (!refPtr) {
                 return false;
+            }
             osCheck(sec.symbols.SecKeychainItemDelete(deno.UnsafePointer.create(refPtr)), "SecKeychainItemDelete failed");
             return true;
         }
@@ -170,9 +174,10 @@ export const backend = {
         new DataView(list.buffer).setUint32(0, 1, true);
         new DataView(list.buffer).setBigUint64(8, BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(svcAttr))), true);
         const searchRefBuf = new Uint8Array(8);
-        const createStatus = sec.symbols.SecKeychainSearchCreateFromAttributes(null, ITEM_CLASS_GENERIC_PASSWORD, list, searchRefBuf);
-        if (createStatus === ERR_ITEM_NOT_FOUND)
+        const createStatus = sec.symbols.SecKeychainSearchCreateFromAttributes(null, ITEM_CLASS_GENERIC_PASSWORD, deno.UnsafePointer.of(list), searchRefBuf);
+        if (createStatus === ERR_ITEM_NOT_FOUND) {
             return [];
+        }
         osCheck(createStatus, "SecKeychainSearchCreateFromAttributes failed");
         const searchRef = readPtr(searchRefBuf);
         const results = [];

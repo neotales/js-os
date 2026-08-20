@@ -69,7 +69,9 @@ function cbytes(value: string): Uint8Array {
 }
 
 function osCheck(status: number, message: string): void {
-  if (status !== 0) throw new Error(`${message} (${status})`);
+  if (status !== 0) {
+    throw new Error(`${message} (${status})`);
+  }
 }
 
 function readPtr(buf: Uint8Array): bigint {
@@ -133,7 +135,9 @@ function findRecord(
     itemRefBuf,
   );
 
-  if (status === ERR_ITEM_NOT_FOUND) return null;
+  if (status === ERR_ITEM_NOT_FOUND) {
+    return null;
+  }
   osCheck(status, "SecKeychainFindGenericPassword failed");
 
   return {
@@ -165,20 +169,30 @@ function getAccountAttribute(itemPtr: bigint): string {
     outLen,
     null,
   );
-  if (status !== 0) return "";
+  if (status !== 0) {
+    return "";
+  }
 
   const attrsPtr = readPtr(outAttrs);
-  if (!attrsPtr) return "";
+  if (!attrsPtr) {
+    return "";
+  }
 
   try {
     const count = readU32(attrsPtr, 0);
-    if (count === 0) return "";
+    if (count === 0) {
+      return "";
+    }
     const attrsArrPtr = readU64(attrsPtr, 8);
     const attrTag = readU32(attrsArrPtr, 0);
-    if (attrTag !== ATTR_ACCOUNT) return "";
+    if (attrTag !== ATTR_ACCOUNT) {
+      return "";
+    }
     const len = readU32(attrsArrPtr, 4);
     const dataPtr = readU64(attrsArrPtr, 8);
-    if (!dataPtr || len === 0) return "";
+    if (!dataPtr || len === 0) {
+      return "";
+    }
     return new TextDecoder().decode(ptrToBytes(dataPtr, len));
   } finally {
     sec.functions.SecKeychainItemFreeAttributesAndData(attrsPtr, null);
@@ -198,7 +212,9 @@ function releaseFindResult(found: { dataPtr: bigint; itemPtr: bigint } | null): 
 export const backend: DarwinKeychainBackend = {
   getSecretBytes(service: string, account: string): Uint8Array | null {
     const found = findRecord(service, account);
-    if (!found) return null;
+    if (!found) {
+      return null;
+    }
     try {
       return ptrToBytes(found.dataPtr, found.passwordLength);
     } finally {
@@ -248,7 +264,9 @@ export const backend: DarwinKeychainBackend = {
 
   deleteSecret(service: string, account: string): boolean {
     const found = findRecord(service, account);
-    if (!found) return false;
+    if (!found) {
+      return false;
+    }
     try {
       osCheck(sec.functions.SecKeychainItemDelete(found.itemPtr), "SecKeychainItemDelete failed");
       return true;
@@ -266,11 +284,15 @@ export const backend: DarwinKeychainBackend = {
       list,
       searchOut,
     );
-    if (status === ERR_ITEM_NOT_FOUND) return [];
+    if (status === ERR_ITEM_NOT_FOUND) {
+      return [];
+    }
     osCheck(status, "SecKeychainSearchCreateFromAttributes failed");
 
     const searchPtr = readPtr(searchOut);
-    if (!searchPtr) return [];
+    if (!searchPtr) {
+      return [];
+    }
 
     const results: SecretRecord[] = [];
     try {
