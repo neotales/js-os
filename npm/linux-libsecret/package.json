@@ -7,21 +7,12 @@
     "linux",
     "secret-service"
   ],
-  "homepage": "https://github.com/neotales/js-os",
-  "bugs": {
-    "url": "https://github.com/neotales/js-os/issues"
-  },
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/neotales/js-os.git",
-    "directory": "npm/linux-libsecret"
-  },
+  "type": "module",
   "files": [
     "esm",
     "types"
   ],
-  "type": "module",
   "exports": {
     ".": {
       "types": "./types/index.d.ts",
@@ -30,6 +21,18 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neotales/js-os.git",
+    "directory": "npm/linux-libsecret"
+  },
+  "bugs": {
+    "url": "https://github.com/neotales/js-os/issues"
+  },
+  "homepage": "https://github.com/neotales/js-os",
+  "engines": {
+    "node": ">=22"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -46,8 +49,5 @@
   },
   "optionalDependencies": {
     "koffi": "^2.9.0"
-  },
-  "engines": {
-    "node": ">=22"
   }
 }

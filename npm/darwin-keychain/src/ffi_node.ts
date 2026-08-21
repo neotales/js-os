@@ -135,7 +135,6 @@ function findRecord(
   );
 
   if (status === ERR_ITEM_NOT_FOUND)
-
     return null;
   osCheck(status, "SecKeychainFindGenericPassword failed");
 

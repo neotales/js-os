@@ -9,51 +9,57 @@ import type { DarwinKeychainBackend, SecretRecord } from "./types.js";
 // deno-lint-ignore no-explicit-any
 const deno = (globalThis as typeof globalThis & { Deno?: any }).Deno;
 
-const sec = deno.dlopen("/System/Library/Frameworks/Security.framework/Security", {
-  SecKeychainFindGenericPassword: {
-    parameters: ["pointer", "u32", "buffer", "u32", "buffer", "buffer", "buffer", "buffer"],
-    result: "i32",
-  },
-  SecKeychainAddGenericPassword: {
-    parameters: ["pointer", "u32", "buffer", "u32", "buffer", "u32", "buffer", "buffer"],
-    result: "i32",
-  },
-  SecKeychainItemModifyAttributesAndData: {
-    parameters: ["pointer", "pointer", "u32", "buffer"],
-    result: "i32",
-  },
-  SecKeychainItemDelete: {
-    parameters: ["pointer"],
-    result: "i32",
-  },
-  SecKeychainItemFreeContent: {
-    parameters: ["pointer", "pointer"],
-    result: "i32",
-  },
-  SecKeychainSearchCreateFromAttributes: {
-    parameters: ["pointer", "i32", "pointer", "buffer"],
-    result: "i32",
-  },
-  SecKeychainSearchCopyNext: {
-    parameters: ["pointer", "buffer"],
-    result: "i32",
-  },
-  SecKeychainItemCopyAttributesAndData: {
-    parameters: ["pointer", "pointer", "pointer", "buffer", "buffer", "pointer"],
-    result: "i32",
-  },
-  SecKeychainItemFreeAttributesAndData: {
-    parameters: ["pointer", "pointer"],
-    result: "i32",
-  },
-} as const);
+const sec = deno.dlopen(
+  "/System/Library/Frameworks/Security.framework/Security",
+  {
+    SecKeychainFindGenericPassword: {
+      parameters: ["pointer", "u32", "buffer", "u32", "buffer", "buffer", "buffer", "buffer"],
+      result: "i32",
+    },
+    SecKeychainAddGenericPassword: {
+      parameters: ["pointer", "u32", "buffer", "u32", "buffer", "u32", "buffer", "buffer"],
+      result: "i32",
+    },
+    SecKeychainItemModifyAttributesAndData: {
+      parameters: ["pointer", "pointer", "u32", "buffer"],
+      result: "i32",
+    },
+    SecKeychainItemDelete: {
+      parameters: ["pointer"],
+      result: "i32",
+    },
+    SecKeychainItemFreeContent: {
+      parameters: ["pointer", "pointer"],
+      result: "i32",
+    },
+    SecKeychainSearchCreateFromAttributes: {
+      parameters: ["pointer", "i32", "pointer", "buffer"],
+      result: "i32",
+    },
+    SecKeychainSearchCopyNext: {
+      parameters: ["pointer", "buffer"],
+      result: "i32",
+    },
+    SecKeychainItemCopyAttributesAndData: {
+      parameters: ["pointer", "pointer", "pointer", "buffer", "buffer", "pointer"],
+      result: "i32",
+    },
+    SecKeychainItemFreeAttributesAndData: {
+      parameters: ["pointer", "pointer"],
+      result: "i32",
+    },
+  } as const,
+);
 
-const cf = deno.dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", {
-  CFRelease: {
-    parameters: ["pointer"],
-    result: "void",
-  },
-} as const);
+const cf = deno.dlopen(
+  "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+  {
+    CFRelease: {
+      parameters: ["pointer"],
+      result: "void",
+    },
+  } as const,
+);
 
 const ERR_ITEM_NOT_FOUND = -25300;
 const ITEM_CLASS_GENERIC_PASSWORD = 0x67656e70;
@@ -315,7 +321,6 @@ export const backend: DarwinKeychainBackend = {
           }
 
           if (!account)
-
             continue;
           const secret = this.getSecretBytes(service, account);
           if (secret === null)

@@ -37,10 +37,9 @@ const GetLastError = k32.func("uint32 __stdcall GetLastError()");
 
 function toRawCredential(c: any): RawCredential {
   const blobSize: number = c.CredentialBlobSize ?? 0;
-  const credentialBlob =
-    blobSize > 0 && c.CredentialBlob
-      ? koffi.decode(c.CredentialBlob, koffi.array("uint8", blobSize))
-      : new Uint8Array(0);
+  const credentialBlob = blobSize > 0 && c.CredentialBlob
+    ? koffi.decode(c.CredentialBlob, koffi.array("uint8", blobSize))
+    : new Uint8Array(0);
   const lastWritten = (BigInt(c.LastWrittenHigh >>> 0) << 32n) | BigInt(c.LastWrittenLow >>> 0);
   return {
     flags: c.Flags ?? 0,

@@ -15,8 +15,8 @@ import {
 import { stringToWide, wideToString } from "../src/types.js";
 
 const WINDOWS = process.platform === "win32";
-const DANGEROUS_MUTATIONS =
-  process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" || process.env.CI === "true";
+const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||
+  process.env.CI === "true";
 const TEST_TARGET = "neotales-js-test-credential";
 const CREDENTIAL_MANAGER_MUTATIONS = DANGEROUS_MUTATIONS && !process.env.SSH_CONNECTION;
 

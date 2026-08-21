@@ -3,17 +3,23 @@ import { stringToWide } from "./types.js";
 
 const deno = (globalThis as typeof globalThis & { Deno?: any }).Deno;
 
-const lib = deno.dlopen("advapi32.dll", {
-  CredWriteW: { parameters: ["buffer", "u32"], result: "i32" },
-  CredReadW: { parameters: ["buffer", "u32", "u32", "buffer"], result: "i32" },
-  CredDeleteW: { parameters: ["buffer", "u32", "u32"], result: "i32" },
-  CredEnumerateW: { parameters: ["pointer", "u32", "buffer", "buffer"], result: "i32" },
-  CredFree: { parameters: ["pointer"], result: "void" },
-} as const);
+const lib = deno.dlopen(
+  "advapi32.dll",
+  {
+    CredWriteW: { parameters: ["buffer", "u32"], result: "i32" },
+    CredReadW: { parameters: ["buffer", "u32", "u32", "buffer"], result: "i32" },
+    CredDeleteW: { parameters: ["buffer", "u32", "u32"], result: "i32" },
+    CredEnumerateW: { parameters: ["pointer", "u32", "buffer", "buffer"], result: "i32" },
+    CredFree: { parameters: ["pointer"], result: "void" },
+  } as const,
+);
 
-const kernel32 = deno.dlopen("kernel32.dll", {
-  GetLastError: { parameters: [], result: "u32" },
-} as const);
+const kernel32 = deno.dlopen(
+  "kernel32.dll",
+  {
+    GetLastError: { parameters: [], result: "u32" },
+  } as const,
+);
 const { symbols } = lib;
 const { symbols: k32 } = kernel32;
 
@@ -43,7 +49,7 @@ function readWideString(ptr: bigint): string {
   if (ptr === 0n) return "";
   const view = new deno.UnsafePointerView(deno.UnsafePointer.create(ptr));
   const chars: number[] = [];
-  for (let i = 0; ; i += 2) {
+  for (let i = 0;; i += 2) {
     const lo = view.getUint8(i);
     const hi = view.getUint8(i + 1);
     if (lo === 0 && hi === 0) break;

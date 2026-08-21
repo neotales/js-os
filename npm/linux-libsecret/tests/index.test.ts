@@ -11,8 +11,8 @@ import {
 } from "../src/index.js";
 
 const LINUX = process.platform === "linux";
-const DANGEROUS_MUTATIONS =
-  process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" || process.env.CI === "true";
+const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||
+  process.env.CI === "true";
 
 function shouldSkipIntegration(error: unknown): boolean {
   const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
@@ -62,7 +62,9 @@ test(
     } catch (error) {
       if (shouldSkipIntegration(error)) {
         t.skip(
-          `Integration environment unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          `Integration environment unavailable: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         );
         return;
       }

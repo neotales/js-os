@@ -6,7 +6,16 @@ const libsecret = deno.dlopen("libsecret-1.so.0", {
         result: "pointer",
     },
     secret_password_lookup_sync: {
-        parameters: ["pointer", "pointer", "buffer", "buffer", "buffer", "buffer", "buffer", "pointer"],
+        parameters: [
+            "pointer",
+            "pointer",
+            "buffer",
+            "buffer",
+            "buffer",
+            "buffer",
+            "buffer",
+            "pointer",
+        ],
         result: "pointer",
     },
     secret_password_store_sync: {
@@ -26,7 +35,16 @@ const libsecret = deno.dlopen("libsecret-1.so.0", {
         result: "i32",
     },
     secret_password_clear_sync: {
-        parameters: ["pointer", "pointer", "buffer", "buffer", "buffer", "buffer", "buffer", "pointer"],
+        parameters: [
+            "pointer",
+            "pointer",
+            "buffer",
+            "buffer",
+            "buffer",
+            "buffer",
+            "buffer",
+            "pointer",
+        ],
         result: "i32",
     },
     secret_password_search_sync: {

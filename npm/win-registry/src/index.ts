@@ -12,7 +12,7 @@
  * @module
  */
 
-export { Registry, RegistryError, RegistryKey, isRegistryAvailable } from "./registry.js";
+export { isRegistryAvailable, Registry, RegistryError, RegistryKey } from "./registry.js";
 export { EXECUTE, type Key, type KeyInfo, type RegistryBackend, Rights, Types } from "./types.js";
 export {
   HKEY_CLASSES_ROOT,

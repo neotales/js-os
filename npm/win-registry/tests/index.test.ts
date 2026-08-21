@@ -1,7 +1,7 @@
 import { equal, ok, strictEqual, throws } from "node:assert/strict";
 import process from "node:process";
 import { test } from "node:test";
-import { Registry, RegistryError, isRegistryAvailable } from "../src/index.js";
+import { isRegistryAvailable, Registry, RegistryError } from "../src/index.js";
 import {
   HKEY_CURRENT_USER,
   HKEY_LOCAL_MACHINE,
@@ -13,8 +13,8 @@ import {
 } from "../src/types.js";
 
 const WINDOWS = process.platform === "win32";
-const DANGEROUS_MUTATIONS =
-  process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" || process.env.CI === "true";
+const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||
+  process.env.CI === "true";
 const WINDOWS_CURRENT_VERSION = "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
 const TEST_KEY = "HKCU\\Software\\neotales-js-test-registry";
 

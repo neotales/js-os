@@ -118,7 +118,7 @@ function cstr(value: string): Uint8Array {
 
 function readCString(ptr: bigint): Uint8Array {
   const bytes: number[] = [];
-  for (let i = 0; ; i++) {
+  for (let i = 0;; i++) {
     const b = ffi.getUint8(ptr, i);
     if (b === 0)
       break;

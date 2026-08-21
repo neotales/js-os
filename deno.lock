@@ -31,7 +31,6 @@
     "packageJson": {
       "dependencies": [
         "npm:@types/node@^25.9.3",
-        "npm:oxfmt@0.35",
         "npm:oxlint@^1.46.0"
       ]
     },

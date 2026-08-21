@@ -3,89 +3,119 @@ import type { LinuxKeyringBackend, SecretRecord } from "./types.js";
 // deno-lint-ignore no-explicit-any
 const deno = (globalThis as typeof globalThis & { Deno?: any }).Deno;
 
-const libsecret = deno.dlopen("libsecret-1.so.0", {
-  secret_schema_new: {
-    parameters: ["buffer", "u32", "buffer", "u32", "buffer", "u32", "pointer"],
-    result: "pointer",
-  },
-  secret_password_lookup_sync: {
-    parameters: ["pointer", "pointer", "buffer", "buffer", "buffer", "buffer", "buffer", "pointer"],
-    result: "pointer",
-  },
-  secret_password_store_sync: {
-    parameters: [
-      "pointer",
-      "buffer",
-      "buffer",
-      "buffer",
-      "pointer",
-      "buffer",
-      "buffer",
-      "buffer",
-      "buffer",
-      "buffer",
-      "pointer",
-    ],
-    result: "i32",
-  },
-  secret_password_clear_sync: {
-    parameters: ["pointer", "pointer", "buffer", "buffer", "buffer", "buffer", "buffer", "pointer"],
-    result: "i32",
-  },
-  secret_password_search_sync: {
-    parameters: ["pointer", "u32", "pointer", "buffer", "buffer", "buffer", "pointer"],
-    result: "pointer",
-  },
-  secret_password_free: {
-    parameters: ["pointer"],
-    result: "void",
-  },
-} as const);
+const libsecret = deno.dlopen(
+  "libsecret-1.so.0",
+  {
+    secret_schema_new: {
+      parameters: ["buffer", "u32", "buffer", "u32", "buffer", "u32", "pointer"],
+      result: "pointer",
+    },
+    secret_password_lookup_sync: {
+      parameters: [
+        "pointer",
+        "pointer",
+        "buffer",
+        "buffer",
+        "buffer",
+        "buffer",
+        "buffer",
+        "pointer",
+      ],
+      result: "pointer",
+    },
+    secret_password_store_sync: {
+      parameters: [
+        "pointer",
+        "buffer",
+        "buffer",
+        "buffer",
+        "pointer",
+        "buffer",
+        "buffer",
+        "buffer",
+        "buffer",
+        "buffer",
+        "pointer",
+      ],
+      result: "i32",
+    },
+    secret_password_clear_sync: {
+      parameters: [
+        "pointer",
+        "pointer",
+        "buffer",
+        "buffer",
+        "buffer",
+        "buffer",
+        "buffer",
+        "pointer",
+      ],
+      result: "i32",
+    },
+    secret_password_search_sync: {
+      parameters: ["pointer", "u32", "pointer", "buffer", "buffer", "buffer", "pointer"],
+      result: "pointer",
+    },
+    secret_password_free: {
+      parameters: ["pointer"],
+      result: "void",
+    },
+  } as const,
+);
 
-const glib = deno.dlopen("libglib-2.0.so.0", {
-  g_error_free: {
-    parameters: ["pointer"],
-    result: "void",
-  },
-  g_hash_table_lookup: {
-    parameters: ["pointer", "buffer"],
-    result: "pointer",
-  },
-  g_hash_table_unref: {
-    parameters: ["pointer"],
-    result: "void",
-  },
-  g_list_free: {
-    parameters: ["pointer"],
-    result: "void",
-  },
-} as const);
+const glib = deno.dlopen(
+  "libglib-2.0.so.0",
+  {
+    g_error_free: {
+      parameters: ["pointer"],
+      result: "void",
+    },
+    g_hash_table_lookup: {
+      parameters: ["pointer", "buffer"],
+      result: "pointer",
+    },
+    g_hash_table_unref: {
+      parameters: ["pointer"],
+      result: "void",
+    },
+    g_list_free: {
+      parameters: ["pointer"],
+      result: "void",
+    },
+  } as const,
+);
 
-const gobject = deno.dlopen("libgobject-2.0.so.0", {
-  g_object_unref: {
-    parameters: ["pointer"],
-    result: "void",
-  },
-} as const);
+const gobject = deno.dlopen(
+  "libgobject-2.0.so.0",
+  {
+    g_object_unref: {
+      parameters: ["pointer"],
+      result: "void",
+    },
+  } as const,
+);
 
-const libsecretApi = deno.dlopen("libsecret-1.so.0", {
-  secret_retrievable_get_attributes: {
-    parameters: ["pointer"],
-    result: "pointer",
-  },
-  secret_retrievable_retrieve_secret_sync: {
-    parameters: ["pointer", "pointer", "buffer"],
-    result: "pointer",
-  },
-  secret_value_get: {
-    parameters: ["pointer", "buffer"],
-    result: "pointer",
-  },
-  secret_value_unref: {
-    parameters: ["pointer"],
-    result: "void",
-  },
-} as const);
+const libsecretApi = deno.dlopen(
+  "libsecret-1.so.0",
+  {
+    secret_retrievable_get_attributes: {
+      parameters: ["pointer"],
+      result: "pointer",
+    },
+    secret_retrievable_retrieve_secret_sync: {
+      parameters: ["pointer", "pointer", "buffer"],
+      result: "pointer",
+    },
+    secret_value_get: {
+      parameters: ["pointer", "buffer"],
+      result: "pointer",
+    },
+    secret_value_unref: {
+      parameters: ["pointer"],
+      result: "void",
+    },
+  } as const,
+);
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -119,13 +149,11 @@ function listNextPtr(listPtr: bigint): bigint {
 }
 
 function readU64(view: InstanceType<typeof deno.UnsafePointerView>, offset: number): bigint {
-  const lo =
-    view.getUint8(offset) |
+  const lo = view.getUint8(offset) |
     (view.getUint8(offset + 1) << 8) |
     (view.getUint8(offset + 2) << 16) |
     (view.getUint8(offset + 3) << 24);
-  const hi =
-    view.getUint8(offset + 4) |
+  const hi = view.getUint8(offset + 4) |
     (view.getUint8(offset + 5) << 8) |
     (view.getUint8(offset + 6) << 16) |
     (view.getUint8(offset + 7) << 24);
@@ -134,13 +162,11 @@ function readU64(view: InstanceType<typeof deno.UnsafePointerView>, offset: numb
 
 function readErrorMessage(errorPtr: bigint): string {
   const view = new deno.UnsafePointerView(deno.UnsafePointer.create(errorPtr));
-  const lo =
-    view.getUint8(8) |
+  const lo = view.getUint8(8) |
     (view.getUint8(9) << 8) |
     (view.getUint8(10) << 16) |
     (view.getUint8(11) << 24);
-  const hi =
-    view.getUint8(12) |
+  const hi = view.getUint8(12) |
     (view.getUint8(13) << 8) |
     (view.getUint8(14) << 16) |
     (view.getUint8(15) << 24);

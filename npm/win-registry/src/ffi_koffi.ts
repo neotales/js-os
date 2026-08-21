@@ -104,13 +104,11 @@ export const backend: RegistryBackend = {
     );
     if (status !== ERROR_SUCCESS)
       throw new Error(`RegQueryInfoKeyW failed with error code ${status}`);
-    const lo =
-      lastWriteTime[0] |
+    const lo = lastWriteTime[0] |
       (lastWriteTime[1] << 8) |
       (lastWriteTime[2] << 16) |
       (lastWriteTime[3] << 24);
-    const hi =
-      lastWriteTime[4] |
+    const hi = lastWriteTime[4] |
       (lastWriteTime[5] << 8) |
       (lastWriteTime[6] << 16) |
       (lastWriteTime[7] << 24);

@@ -104,7 +104,7 @@ function readErrorMessage(errorPtr: number): string {
 
 function readCString(valuePtr: number): string {
   const bytes: number[] = [];
-  for (let i = 0; ; i++) {
+  for (let i = 0;; i++) {
     const v = read.u8(valuePtr as Pointer, i);
     if (v === 0)
       break;
@@ -159,7 +159,7 @@ export const backend: LinuxKeyringBackend = {
       return null;
     try {
       const bytes: number[] = [];
-      for (let i = 0; ; i++) {
+      for (let i = 0;; i++) {
         const v = read.u8(p as Pointer, i);
         if (v === 0)
           break;

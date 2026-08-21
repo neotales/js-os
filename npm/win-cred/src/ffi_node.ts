@@ -27,7 +27,7 @@ const OFF_USER_NAME = 72;
 function readWideString(ptr: bigint): string {
   if (ptr === 0n) return "";
   const chars: number[] = [];
-  for (let i = 0; ; i += 2) {
+  for (let i = 0;; i += 2) {
     const lo = ffi.getUint8(ptr, i);
     const hi = ffi.getUint8(ptr, i + 1);
     if (lo === 0 && hi === 0) break;

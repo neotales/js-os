@@ -21,6 +21,15 @@
     "lineWidth": 100,
     "singleQuote": false,
     "proseWrap": "preserve",
-    "exclude": ["npm/*/node_modules", "npm/*/dist"]
+    "useBraces": "maintain",
+    "exclude": [
+      ".vscode",
+      "artifacts",
+      "npm/*/node_modules",
+      "npm/*/dist",
+      "npm/*/esm",
+      "npm/*/types",
+      "npm/*/.test"
+    ]
   }
 }

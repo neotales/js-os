@@ -8,7 +8,6 @@ const upstream = resolve(
 const jsrDir = join(root, "jsr");
 const npmDir = join(root, "npm");
 const executableExtension = Deno.build.os === "windows" ? ".cmd" : "";
-const oxfmt = join(root, "node_modules", ".bin", `oxfmt${executableExtension}`);
 const oxlint = join(root, "node_modules", ".bin", `oxlint${executableExtension}`);
 
 type PackageJson = {
@@ -44,7 +43,7 @@ Tasks:
   build <module>              Compile one npm package with TypeScript
   test [module] [runtime]     Run JSR Deno and npm runtime tests
   lint                        Check source with oxlint
-  fmt [--check]               Format or check formatting with oxfmt
+  fmt [--check]               Format or check formatting with deno fmt
   audit                       Audit npm dependencies
   check                       Run lint, formatting, audit, and all tests
   pack <module>               Create an npm tarball
@@ -55,8 +54,10 @@ Tasks:
 
 function moduleName(args: string[], required = false): string | undefined {
   const names = args.filter((arg) => !arg.startsWith("-"));
-  if (names.length > 1 || (required && names.length !== 1)) usage();
-  if (names[0] && !/^[a-z0-9][a-z0-9-]*$/.test(names[0])) usage();
+  if (names.length > 1 || (required && names.length !== 1))
+    usage();
+  if (names[0] && !/^[a-z0-9][a-z0-9-]*$/.test(names[0]))
+    usage();
   return names[0];
 }
 
@@ -80,7 +81,8 @@ async function run(command: string, args: string[], cwd = root): Promise<void> {
     stdout: "inherit",
     stderr: "inherit",
   }).output();
-  if (!output.success) Deno.exit(output.code);
+  if (!output.success)
+    Deno.exit(output.code);
 }
 
 async function capture(command: string, args: string[], cwd = root): Promise<Deno.CommandOutput> {
@@ -93,13 +95,15 @@ function outputText(output: Deno.CommandOutput): string {
 
 async function git(args: string[]): Promise<string> {
   const output = await capture("git", args);
-  if (!output.success) throw new Error(outputText(output).trim());
+  if (!output.success)
+    throw new Error(outputText(output).trim());
   return new TextDecoder().decode(output.stdout).trim();
 }
 
 function releaseTag(args: string[]): string {
   const tags = args.filter((arg) => !arg.startsWith("-"));
-  if (tags.length !== 1) usage();
+  if (tags.length !== 1)
+    usage();
   const tag = tags[0];
   if (!/^v\d{4}\.\d{2}\.\d{2}-(?:r[1-9]\d*|nightly\.r[1-9]\d*|beta\.r[1-9]\d*)$/.test(tag)) {
     throw new Error(`Invalid release tag: ${tag}`);
@@ -143,7 +147,8 @@ async function rewriteTree(
 function npmExports(pkg: PackageJson): Record<string, unknown> {
   const exports: Record<string, unknown> = {};
   for (const [name, path] of Object.entries(pkg.exports ?? {})) {
-    if (name === "./package.json") continue;
+    if (name === "./package.json")
+      continue;
     const output = basename(path).replace(/\.mjs$/, ".js");
     const declaration = output.replace(/\.js$/, ".d.ts");
     exports[name] = { types: `./types/${declaration}`, import: `./esm/${output}` };
@@ -268,7 +273,8 @@ if (process.platform === "win32") {
       try {
         impl = (require("./ffi_koffi.js") as typeof import("./ffi_koffi.js")).evalIsProcessElevated;
       } catch {
-        if (process.env.DEBUG === "true") console.debug(error);
+        if (process.env.DEBUG === "true")
+console.debug(error);
       }
     }
   }
@@ -498,8 +504,10 @@ async function writeNpmPackage(name: string, source: string, pkg: PackageJson): 
       }
     });
   }
-  await rewriteTree(destination, /\.(?:ts|md)$/, (content) =>
-    rebrand(content).replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
+  await rewriteTree(
+    destination,
+    /\.(?:ts|md)$/,
+    (content) => rebrand(content).replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
   );
   await Deno.writeTextFile(join(destination, "src", "index.ts"), isElevatedNpmIndex());
   await Deno.writeTextFile(join(destination, "src", "node.ts"), isElevatedNpmNode());
@@ -564,7 +572,12 @@ test(
   );
   await Deno.writeTextFile(
     join(destination, "README.md"),
-    `${(await Deno.readTextFile(join(destination, "README.md"))).replace("## Runtime Notes", "## Elevation Detection\n\nOn Unix-like systems, elevation means an effective user ID of `0`. Node and Bun check `process.geteuid()` when available, then fall back to `process.getuid()`. The result is cached so repeated checks do not need to query the runtime again.\n\nOn Windows, the package opens the current process token and calls `GetTokenInformation` with `TokenElevation`. Node uses native `node:ffi` when available and otherwise the optional `koffi` dependency; Bun and Deno use their native FFI implementations. The FFI implementations are loaded only on Windows.\n\nThis intentionally does not use `Shell32.IsUserAnAdmin`. That API checks administrator-group membership rather than the current process token, so it can disagree under User Account Control when an administrator account is running with a filtered, non-elevated token. `TokenElevation` reports the process state directly.\n\n## Runtime Notes")}\n\n## Runtime Support\n\nThis npm package supports Node, Bun, and Deno. Deno users can import it with \`npm:@neotales/${name}\`; use the JSR package for the Deno-only implementation.\n`,
+    `${
+      (await Deno.readTextFile(join(destination, "README.md"))).replace(
+        "## Runtime Notes",
+        "## Elevation Detection\n\nOn Unix-like systems, elevation means an effective user ID of `0`. Node and Bun check `process.geteuid()` when available, then fall back to `process.getuid()`. The result is cached so repeated checks do not need to query the runtime again.\n\nOn Windows, the package opens the current process token and calls `GetTokenInformation` with `TokenElevation`. Node uses native `node:ffi` when available and otherwise the optional `koffi` dependency; Bun and Deno use their native FFI implementations. The FFI implementations are loaded only on Windows.\n\nThis intentionally does not use `Shell32.IsUserAnAdmin`. That API checks administrator-group membership rather than the current process token, so it can disagree under User Account Control when an administrator account is running with a filtered, non-elevated token. `TokenElevation` reports the process state directly.\n\n## Runtime Notes",
+      )
+    }\n\n## Runtime Support\n\nThis npm package supports Node, Bun, and Deno. Deno users can import it with \`npm:@neotales/${name}\`; use the JSR package for the Deno-only implementation.\n`,
   );
 }
 
@@ -794,7 +807,8 @@ function winRegistryFfi(source: string): string {
       /    return \{ type: ([^,]+), bytesRead: ([^}]+) \};/,
       "    return { type: $1, data: buffer.subarray(0, $2) };",
     );
-  if (transformed === source) throw new Error("Unexpected win-registry FFI source layout.");
+  if (transformed === source)
+    throw new Error("Unexpected win-registry FFI source layout.");
   return transformed;
 }
 
@@ -858,7 +872,9 @@ if (Deno.build.os === "windows") {
 }
 
 `;
-  return `${source.slice(0, globals)}${source.slice(source.indexOf("export class RegistryError", globals), driver)}${denoDriver}${source.slice(api)}`;
+  return `${source.slice(0, globals)}${
+    source.slice(source.indexOf("export class RegistryError", globals), driver)
+  }${denoDriver}${source.slice(api)}`;
 }
 
 function winRegistryNpmRegistry(source: string): string {
@@ -871,14 +887,16 @@ function winRegistryNpmRegistry(source: string): string {
       driver = require("./ffi_deno.js").backend;
       isSupported = true;
     } catch (error) {
-      if (process.env.DEBUG === "true") console.debug(error);
+      if (process.env.DEBUG === "true")
+console.debug(error);
     }
   } else if (typeof globals.Bun !== "undefined") {
     try {
       driver = require("./ffi_bun.js").backend;
       isSupported = true;
     } catch (error) {
-      if (process.env.DEBUG === "true") console.debug(error);
+      if (process.env.DEBUG === "true")
+console.debug(error);
     }
   } else {`,
   );
@@ -947,7 +965,8 @@ Deno.test("registry is unavailable outside Windows", { ignore: Deno.build.os ===
   try {
     Registry.openKey("HKCU\\\\Software");
   } catch (error) {
-    if (error instanceof RegistryError) return;
+    if (error instanceof RegistryError)
+return;
     throw error;
   }
   throw new Error("Expected RegistryError");
@@ -955,7 +974,8 @@ Deno.test("registry is unavailable outside Windows", { ignore: Deno.build.os ===
 
 Deno.test("registry reads Windows version values", { ignore: Deno.build.os !== "windows" }, () => {
   using key = Registry.openKey("HKLM\\\\SOFTWARE\\\\Microsoft\\\\Windows NT\\\\CurrentVersion");
-  if (!key.getString("ProductName")) throw new Error("Expected Windows product name");
+  if (!key.getString("ProductName"))
+throw new Error("Expected Windows product name");
 });
 `,
   );
@@ -984,11 +1004,14 @@ async function writeWinRegistryNpmPackage(
   await copy(source, destination, { overwrite: false });
   for (const file of ["package.json", "vite.config.ts", "tsconfig.json", "esm"]) {
     await Deno.remove(join(destination, file), { recursive: true }).catch((error: unknown) => {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      if (!(error instanceof Deno.errors.NotFound))
+        throw error;
     });
   }
-  await rewriteTree(destination, /\.(?:ts|md)$/, (content) =>
-    rebrand(content).replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
+  await rewriteTree(
+    destination,
+    /\.(?:ts|md)$/,
+    (content) => rebrand(content).replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
   );
   const typesPath = join(destination, "src", "types.ts");
   await Deno.writeTextFile(
@@ -1043,7 +1066,8 @@ async function writeWinRegistryNpmPackage(
     `${tests}
 
 test("win-registry::Registry preserves values larger than 4 KiB", { skip: !WINDOWS || !DANGEROUS_MUTATIONS }, () => {
-  if (!WINDOWS || !DANGEROUS_MUTATIONS) return;
+  if (!WINDOWS || !DANGEROUS_MUTATIONS)
+return;
 
   const key = Registry.createKey(TEST_KEY);
   try {
@@ -1086,7 +1110,9 @@ function winCredDenoCredential(source: string): string {
   if (globals === -1 || supported === -1 || runtime === -1 || api === -1) {
     throw new Error("Unexpected win-cred source layout.");
   }
-  return `${source.slice(0, globals)}${source.slice(supported, runtime)}if (Deno.build.os === "windows") {
+  return `${source.slice(0, globals)}${
+    source.slice(supported, runtime)
+  }if (Deno.build.os === "windows") {
   try {
     driver = (await import("./ffi_deno.ts")).backend;
     isSupported = true;
@@ -1148,15 +1174,18 @@ async function writeWinCredDenoPackage(
     `import { decodeSecret, encodeSecret, isAvailable, listCredentials } from "./mod.ts";
 
 Deno.test("credential availability matches the platform", () => {
-  if (isAvailable() !== (Deno.build.os === "windows")) throw new Error("Unexpected availability");
+  if (isAvailable() !== (Deno.build.os === "windows"))
+throw new Error("Unexpected availability");
 });
 
 Deno.test("credential secret encoding roundtrips", () => {
-  if (decodeSecret(encodeSecret("secret")) !== "secret") throw new Error("Unexpected secret");
+  if (decodeSecret(encodeSecret("secret")) !== "secret")
+throw new Error("Unexpected secret");
 });
 
 Deno.test("credential listing is safe on Windows", { ignore: Deno.build.os !== "windows" }, () => {
-  if (!Array.isArray(listCredentials())) throw new Error("Expected credentials");
+  if (!Array.isArray(listCredentials()))
+throw new Error("Expected credentials");
 });
 `,
   );
@@ -1186,8 +1215,10 @@ async function writeWinCredNpmPackage(
   for (const file of ["package.json", "vite.config.ts", "tsconfig.json", "esm"]) {
     await Deno.remove(join(destination, file), { recursive: true }).catch(() => undefined);
   }
-  await rewriteTree(destination, /\.(?:ts|md)$/, (content) =>
-    rebrand(content).replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
+  await rewriteTree(
+    destination,
+    /\.(?:ts|md)$/,
+    (content) => rebrand(content).replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
   );
   for (const module of ["ffi_bun", "ffi_deno", "ffi_koffi", "ffi_node"]) {
     const ffiPath = join(destination, "src", `${module}.ts`);
@@ -1434,8 +1465,7 @@ async function writeDarwinKeychainPackage(
   await rewriteTree(npm, /\.(?:ts|md)$/, (content) =>
     rebrand(content)
       .replaceAll("Deno_", "deno")
-      .replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
-  );
+      .replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"));
   for (const file of ["ffi_deno", "ffi_koffi", "ffi_node"]) {
     const path = join(npm, "src", `${file}.ts`);
     let content = darwinKeychainFfi(await Deno.readTextFile(path));
@@ -1540,9 +1570,9 @@ function linuxLibsecretNpmTests(source: string): string {
   const withAvailability = normalized.includes("  isLinuxLibsecretAvailable,\n")
     ? normalized
     : normalized.replace(
-        "  getSecretBytes,\n",
-        "  getSecretBytes,\n  isLinuxLibsecretAvailable,\n",
-      );
+      "  getSecretBytes,\n",
+      "  getSecretBytes,\n  isLinuxLibsecretAvailable,\n",
+    );
   return expandSingleLineIfBodies(
     withAvailability.replace(
       "{ skip: !LINUX || !DANGEROUS_MUTATIONS },",
@@ -1618,8 +1648,7 @@ Deno.test("libsecret availability reports a boolean", () => {
   await rewriteTree(npm, /\.(?:ts|md)$/, (content) =>
     rebrand(content)
       .replaceAll("Deno_", "deno")
-      .replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"),
-  );
+      .replace(/(["'](?:\.{1,2}\/)[^"']+)\.ts(["'])/g, "$1.js$2"));
   const npmVault = join(npm, "src", "vault.ts");
   await Deno.writeTextFile(npmVault, linuxLibsecretNpmVault(await Deno.readTextFile(npmVault)));
   const npmTests = join(npm, "tests", "index.test.ts");
@@ -1710,7 +1739,7 @@ async function importModule(name: string, replace: boolean): Promise<void> {
   } else {
     await writeLinuxLibsecretPackage(name, source, pkg);
   }
-  await run(oxfmt, ["--write", "--ignore-path", ".prettierignore", jsrPackage, npmPackage]);
+  await run(Deno.execPath(), ["fmt", jsrPackage, npmPackage]);
   console.log(`Imported split Deno and npm packages for ${name}.`);
 }
 
@@ -1731,12 +1760,16 @@ async function testModules(name: string | undefined, runtimes: Set<string>): Pro
   const selected = runtimes.size ? runtimes : new Set(["deno", "node", "bun"]);
   await run("pnpm", ["install"]);
   for (const module of modules) {
-    if (selected.has("deno")) await run("deno", ["test", "-A"], join(jsrDir, module));
+    if (selected.has("deno"))
+      await run("deno", ["test", "-A"], join(jsrDir, module));
     await buildModule(module);
     const npmPackage = join(npmDir, module);
-    if (selected.has("deno")) await run("pnpm", ["test:deno"], npmPackage);
-    if (selected.has("node")) await run("pnpm", ["test"], npmPackage);
-    if (selected.has("bun")) await run("pnpm", ["test:bun"], npmPackage);
+    if (selected.has("deno"))
+      await run("pnpm", ["test:deno"], npmPackage);
+    if (selected.has("node"))
+      await run("pnpm", ["test"], npmPackage);
+    if (selected.has("bun"))
+      await run("pnpm", ["test:bun"], npmPackage);
   }
 }
 
@@ -1756,7 +1789,8 @@ async function releasePackages(baseTag: string | undefined): Promise<ReleasePack
       const previous = await capture("git", ["show", `${baseTag}:jsr/${module}/deno.json`]);
       if (previous.success) {
         const old = JSON.parse(new TextDecoder().decode(previous.stdout)) as DenoConfig;
-        if (old.version === current.version) continue;
+        if (old.version === current.version)
+          continue;
       }
     }
     packages.push({
@@ -1783,7 +1817,8 @@ async function releasePrepare(tag: string): Promise<void> {
   }
   const artifacts = join(root, "artifacts", tag);
   await Deno.remove(artifacts, { recursive: true }).catch((error: unknown) => {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    if (!(error instanceof Deno.errors.NotFound))
+      throw error;
   });
   await Deno.mkdir(artifacts, { recursive: true });
   for (const pkg of packages) {
@@ -1791,17 +1826,19 @@ async function releasePrepare(tag: string): Promise<void> {
     await run("pnpm", ["pack", "--pack-destination", artifacts], join(npmDir, pkg.module));
     const tarballs: string[] = [];
     for await (const entry of Deno.readDir(artifacts)) {
-      if (entry.isFile && entry.name.endsWith(".tgz")) tarballs.push(entry.name);
+      if (entry.isFile && entry.name.endsWith(".tgz"))
+        tarballs.push(entry.name);
     }
     const tarball = tarballs.find((entry) => entry.includes(pkg.module.replaceAll("-", "-")));
-    if (!tarball) throw new Error(`Could not locate the tarball for ${pkg.module}.`);
+    if (!tarball)
+      throw new Error(`Could not locate the tarball for ${pkg.module}.`);
     pkg.tarball = tarball;
   }
 
   const commits = (await git(["log", "--format=%s", ...(baseTag ? [`${baseTag}..HEAD`] : [])]))
     .split("\n")
     .filter((subject) =>
-      /^(?:feat|fix|bug|perf|refactor|docs|chore)(?:\([^)]+\))?!?:/.test(subject),
+      /^(?:feat|fix|bug|perf|refactor|docs|chore)(?:\([^)]+\))?!?:/.test(subject)
     )
     .map((subject) => `- ${subject}`);
   await Deno.writeTextFile(
@@ -1836,7 +1873,8 @@ async function publishNpm(args: string[], cwd: string, token?: string): Promise<
       stdout: "inherit",
       stderr: "inherit",
     }).output();
-    if (!output.success) Deno.exit(output.code);
+    if (!output.success)
+      Deno.exit(output.code);
   } finally {
     await Deno.remove(authDir, { recursive: true });
   }
@@ -1846,7 +1884,8 @@ async function bootstrapPublish(name: string, dryRun: boolean): Promise<void> {
   let token = Deno.env.get("NODE_AUTH_TOKEN")?.trim();
   if (!dryRun && !token) {
     token = prompt("npm auth token:")?.trim();
-    if (!token) throw new Error("An npm auth token is required for the initial npm publication.");
+    if (!token)
+      throw new Error("An npm auth token is required for the initial npm publication.");
   }
   await lint();
   await format(true);
@@ -1856,7 +1895,8 @@ async function bootstrapPublish(name: string, dryRun: boolean): Promise<void> {
   const version = await fetch(
     `https://registry.npmjs.org/${encodeURIComponent(pkg.name)}/${pkg.version}`,
   );
-  if (version.ok) throw new Error(`${pkg.name}@${pkg.version} already exists on npm.`);
+  if (version.ok)
+    throw new Error(`${pkg.name}@${pkg.version} already exists on npm.`);
   await run("pnpm", ["pack"], directory);
   const tarball = join(
     directory,
@@ -1878,21 +1918,7 @@ async function bootstrapPublish(name: string, dryRun: boolean): Promise<void> {
 }
 
 async function format(check: boolean): Promise<void> {
-  await run(oxfmt, [
-    check ? "--check" : "--write",
-    "--ignore-path",
-    ".prettierignore",
-    "eng",
-    "jsr",
-    "npm",
-    "README.md",
-    "LICENSE.md",
-    "deno.json",
-    "package.json",
-    "pnpm-workspace.yaml",
-    ".oxlintrc.json",
-    ".oxfmtrc.json",
-  ]);
+  await run(Deno.execPath(), ["fmt", ...(check ? ["--check"] : [])]);
 }
 
 async function lint(): Promise<void> {
@@ -1911,8 +1937,8 @@ const [command, ...args] = Deno.args;
 const name = ["import", "build", "pack", "publish-bootstrap"].includes(command)
   ? moduleName(args, true)
   : command === "test"
-    ? moduleName(args)
-    : undefined;
+  ? moduleName(args)
+  : undefined;
 switch (command) {
   case "import":
     await importModule(name!, args.includes("--replace"));

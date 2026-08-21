@@ -1,4 +1,4 @@
-import { Registry, RegistryError, isRegistryAvailable } from "./mod.ts";
+import { isRegistryAvailable, Registry, RegistryError } from "./mod.ts";
 import { stringToWide, wideToString } from "./types.ts";
 
 Deno.test("registry availability matches the platform", () => {

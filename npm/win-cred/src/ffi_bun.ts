@@ -27,7 +27,7 @@ const OFF_USER_NAME = 72;
 function readWideString(intPtr: number): string {
   if (intPtr === 0) return "";
   const chars: number[] = [];
-  for (let i = 0; ; i += 2) {
+  for (let i = 0;; i += 2) {
     const lo = read.u8(intPtr as Pointer, i);
     const hi = read.u8(intPtr as Pointer, i + 1);
     if (lo === 0 && hi === 0) break;

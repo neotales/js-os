@@ -25,59 +25,71 @@ if (!Deno) {
   throw new Error("Deno runtime is required for this backend");
 }
 
-const lib = Deno.dlopen("advapi32.dll", {
-  RegOpenKeyExW: { parameters: ["pointer", "buffer", "u32", "u32", "buffer"], result: "i32" },
-  RegCreateKeyExW: {
-    parameters: [
-      "pointer",
-      "buffer",
-      "u32",
-      "pointer",
-      "u32",
-      "u32",
-      "pointer",
-      "buffer",
-      "buffer",
-    ],
-    result: "i32",
-  },
-  RegCloseKey: { parameters: ["pointer"], result: "i32" },
-  RegDeleteKeyW: { parameters: ["pointer", "buffer"], result: "i32" },
-  RegDeleteValueW: { parameters: ["pointer", "buffer"], result: "i32" },
-  RegQueryInfoKeyW: {
-    parameters: [
-      "pointer",
-      "pointer",
-      "pointer",
-      "pointer",
-      "buffer",
-      "buffer",
-      "pointer",
-      "buffer",
-      "buffer",
-      "buffer",
-      "pointer",
-      "buffer",
-    ],
-    result: "i32",
-  },
-  RegEnumKeyExW: {
-    parameters: ["pointer", "u32", "buffer", "buffer", "pointer", "pointer", "pointer", "pointer"],
-    result: "i32",
-  },
-  RegEnumValueW: {
-    parameters: ["pointer", "u32", "buffer", "buffer", "pointer", "buffer", "buffer", "buffer"],
-    result: "i32",
-  },
-  RegQueryValueExW: {
-    parameters: ["pointer", "buffer", "pointer", "buffer", "buffer", "buffer"],
-    result: "i32",
-  },
-  RegSetValueExW: {
-    parameters: ["pointer", "buffer", "u32", "u32", "buffer", "u32"],
-    result: "i32",
-  },
-} as const);
+const lib = Deno.dlopen(
+  "advapi32.dll",
+  {
+    RegOpenKeyExW: { parameters: ["pointer", "buffer", "u32", "u32", "buffer"], result: "i32" },
+    RegCreateKeyExW: {
+      parameters: [
+        "pointer",
+        "buffer",
+        "u32",
+        "pointer",
+        "u32",
+        "u32",
+        "pointer",
+        "buffer",
+        "buffer",
+      ],
+      result: "i32",
+    },
+    RegCloseKey: { parameters: ["pointer"], result: "i32" },
+    RegDeleteKeyW: { parameters: ["pointer", "buffer"], result: "i32" },
+    RegDeleteValueW: { parameters: ["pointer", "buffer"], result: "i32" },
+    RegQueryInfoKeyW: {
+      parameters: [
+        "pointer",
+        "pointer",
+        "pointer",
+        "pointer",
+        "buffer",
+        "buffer",
+        "pointer",
+        "buffer",
+        "buffer",
+        "buffer",
+        "pointer",
+        "buffer",
+      ],
+      result: "i32",
+    },
+    RegEnumKeyExW: {
+      parameters: [
+        "pointer",
+        "u32",
+        "buffer",
+        "buffer",
+        "pointer",
+        "pointer",
+        "pointer",
+        "pointer",
+      ],
+      result: "i32",
+    },
+    RegEnumValueW: {
+      parameters: ["pointer", "u32", "buffer", "buffer", "pointer", "buffer", "buffer", "buffer"],
+      result: "i32",
+    },
+    RegQueryValueExW: {
+      parameters: ["pointer", "buffer", "pointer", "buffer", "buffer", "buffer"],
+      result: "i32",
+    },
+    RegSetValueExW: {
+      parameters: ["pointer", "buffer", "u32", "u32", "buffer", "u32"],
+      result: "i32",
+    },
+  } as const,
+);
 
 const { symbols } = lib;
 
