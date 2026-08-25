@@ -7,11 +7,7 @@
 
 import type { RegistryBackend } from "./types.js";
 import { RegistryError } from "./registry_error.js";
-import {
-  ERROR_MORE_DATA,
-  ERROR_NO_MORE_ITEMS,
-  ERROR_SUCCESS,
-} from "./types.js";
+import { ERROR_MORE_DATA, ERROR_NO_MORE_ITEMS, ERROR_SUCCESS } from "./types.js";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);

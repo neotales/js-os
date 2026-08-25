@@ -23,7 +23,9 @@ Deno.test("binary helpers roundtrip unsigned values", () => {
   equal(readU64(new Uint8Array(view.buffer)), 0x1122334455667788n);
 });
 
-Deno.test("deno backend exposes an open/close lifecycle", () => {
+Deno.test("deno backend exposes an open/close lifecycle", { ignore: !isWindows() }, () => {
+  if (!isWindows()) return;
+
   denoBackend.close();
   equal(denoBackend.isOpened(), false);
   denoBackend.open();
@@ -32,7 +34,9 @@ Deno.test("deno backend exposes an open/close lifecycle", () => {
   equal(denoBackend.isOpened(), false);
 });
 
-Deno.test("backend loads lazily through the facade", () => {
+Deno.test("backend loads lazily through the facade", { ignore: !isWindows() }, () => {
+  if (!isWindows()) return;
+
   denoBackend.close();
   const probe = Registry.openKey("HKCU\\Software");
   try {

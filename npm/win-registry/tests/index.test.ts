@@ -13,11 +13,9 @@ import {
 } from "../src/types.js";
 
 const WINDOWS = process.platform === "win32";
-const DANGEROUS_MUTATIONS =
-  process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||
+const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||
   process.env.CI === "true";
-const WINDOWS_CURRENT_VERSION =
-  "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
+const WINDOWS_CURRENT_VERSION = "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
 const TEST_KEY = "HKCU\\Software\\neotales-js-test-registry";
 
 test("win-registry::availability reports a boolean", () => {
