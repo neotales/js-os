@@ -13,16 +13,20 @@ import {
 } from "../src/types.js";
 
 const WINDOWS = process.platform === "win32";
-const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||
+const DANGEROUS_MUTATIONS =
+  process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||
   process.env.CI === "true";
-const WINDOWS_CURRENT_VERSION = "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
+const WINDOWS_CURRENT_VERSION =
+  "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
 const TEST_KEY = "HKCU\\Software\\neotales-js-test-registry";
 
 test("win-registry::availability reports a boolean", () => {
   strictEqual(typeof isRegistryAvailable(), "boolean");
 });
 
-test("win-registry::registry is unavailable on non-windows runtimes", { skip: WINDOWS }, () => {
+test("win-registry::registry is unavailable on non-windows runtimes", {
+  skip: WINDOWS,
+}, () => {
   strictEqual(isRegistryAvailable(), false);
   throws(() => Registry.openKey("HKCU\\Software"), RegistryError);
 });
@@ -102,11 +106,15 @@ test(
   },
 );
 
-test("win-registry::Registry relative open works for well-known keys", { skip: !WINDOWS }, () => {
+test("win-registry::Registry relative open works for well-known keys", {
+  skip: !WINDOWS,
+}, () => {
   if (!WINDOWS) return;
 
   const root = Registry.HKLM;
-  const currentVersion = root.openKey("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion");
+  const currentVersion = root.openKey(
+    "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+  );
 
   try {
     strictEqual(currentVersion.getString("ProductName").length > 0, true);
@@ -163,10 +171,14 @@ test(
     if (!WINDOWS || !DANGEROUS_MUTATIONS) return;
 
     const root = Registry.HKCU;
-    const created = root.createKey("Software\\neotales-js-test-registry-relative");
+    const created = root.createKey(
+      "Software\\neotales-js-test-registry-relative",
+    );
     try {
       created.setString("Relative", "value");
-      const child = root.openKey("Software\\neotales-js-test-registry-relative");
+      const child = root.openKey(
+        "Software\\neotales-js-test-registry-relative",
+      );
       equal(child.getString("Relative"), "value");
     } finally {
       created.close();
@@ -183,7 +195,10 @@ test(
 
     const key = Registry.createKey(TEST_KEY);
     try {
-      const binary = Uint8Array.from({ length: 8192 }, (_, index) => index % 256);
+      const binary = Uint8Array.from(
+        { length: 8192 },
+        (_, index) => index % 256,
+      );
       const string = "registry-value-".repeat(512);
       const multi = ["first-".repeat(512), "second-".repeat(512)];
 

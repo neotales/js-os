@@ -12,8 +12,20 @@
  * @module
  */
 
-export { isRegistryAvailable, Registry, RegistryError, RegistryKey } from "./registry.ts";
-export { EXECUTE, type Key, type KeyInfo, type RegistryBackend, Rights, Types } from "./types.ts";
+export {
+  isRegistryAvailable,
+  Registry,
+  RegistryError,
+  RegistryKey,
+} from "./registry.ts";
+export {
+  EXECUTE,
+  type Key,
+  type KeyInfo,
+  type RegistryBackend,
+  Rights,
+  Types,
+} from "./types.ts";
 export {
   HKEY_CLASSES_ROOT,
   HKEY_CURRENT_CONFIG,

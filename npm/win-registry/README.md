@@ -2,8 +2,10 @@
 
 ## Overview
 
-`@neotales/win-registry` provides a cross-runtime Windows Registry API backed by runtime-specific FFI implementations.
-It supports Node.js, Bun, and Deno on Windows, with helpers for opening keys, reading values, writing values, and deleting keys.
+`@neotales/win-registry` provides a cross-runtime Windows Registry API backed by
+runtime-specific FFI implementations. It supports Node.js, Bun, and Deno on
+Windows, with helpers for opening keys, reading values, writing values, and
+deleting keys.
 
 ![logo](https://raw.githubusercontent.com/neotales/js-std/refs/heads/dev/eng/assets/logo.png)
 
@@ -13,9 +15,11 @@ It supports Node.js, Bun, and Deno on Windows, with helpers for opening keys, re
 
 ## Documentation
 
-Documentation is available on [jsr.io](https://jsr.io/@neotales/win-registry/doc).
+Documentation is available on
+[jsr.io](https://jsr.io/@neotales/win-registry/doc).
 
-A list of other modules can be found at [github.com/neotales/js-os](https://github.com/neotales/js-os).
+A list of other modules can be found at
+[github.com/neotales/js-os](https://github.com/neotales/js-os).
 
 ## Installation
 
@@ -27,7 +31,9 @@ pnpm add @neotales/win-registry
 import { Registry } from "@neotales/win-registry";
 ```
 
-Deno projects that need the npm package can use `deno add npm:@neotales/win-registry` and import from `npm:@neotales/win-registry`.
+Deno projects that need the npm package can use
+`deno add npm:@neotales/win-registry` and import from
+`npm:@neotales/win-registry`.
 
 ## Usage
 
@@ -49,7 +55,9 @@ Read a string value:
 ```typescript
 import { Registry } from "@neotales/win-registry";
 
-using key = Registry.openKey("HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion");
+using key = Registry.openKey(
+  "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+);
 
 console.log(key.getString("ProductName"));
 console.log(key.getString("SystemRoot"));
@@ -122,18 +130,21 @@ Open a child key relative to a root key:
 ```typescript
 import { Registry } from "@neotales/win-registry";
 
-using currentVersion = Registry.HKLM.openKey("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion");
+using currentVersion = Registry.HKLM.openKey(
+  "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+);
 
 console.log(currentVersion.getString("ProductName"));
 ```
 
 ## Exports
 
-| Export                                                                                                | Subpath                           | Description                                                  |
-| ----------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------ |
-| `Registry`, `RegistryKey`, `RegistryError`, `isRegistryAvailable`                                     | `@neotales/win-registry`          | Root registry facade, key wrapper, and availability helpers. |
-| `Registry`, `RegistryKey`, `RegistryError`, `isRegistryAvailable`                                     | `@neotales/win-registry/registry` | Explicit registry facade subpath.                            |
-| `Rights`, `Types`, `EXECUTE`, registry root constants, `parseRegistryPath`, string conversion helpers | `@neotales/win-registry/types`    | Constants, types, and encoding helpers.                      |
+| Export                                                                                                | Subpath                                                                                               | Description                                                           |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `Registry`, `RegistryKey`, `RegistryError`, `isRegistryAvailable`                                     | `@neotales/win-registry`                                                                              | Root registry facade, key wrapper, and availability helpers.          |
+| `Registry`, `RegistryKey`, `RegistryError`, `isRegistryAvailable`                                     | `@neotales/win-registry/registry`                                                                     | Explicit registry facade subpath.                                     |
+| `Rights`, `Types`, `EXECUTE`, registry root constants, `parseRegistryPath`, string conversion helpers | `@neotales/win-registry/types`                                                                        | Constants, types, and encoding helpers.                               |
+| `backend`, `open`, `isOpened`, `close`                                                                | `@neotales/win-registry/dist/ffi_node.js`, `dist/ffi_bun.js`, `dist/ffi_deno.js`, `dist/ffi_koffi.js` | Runtime FFI backends with an explicit open/close lifecycle. Internal. |
 
 ```typescript
 import { Registry, Rights } from "@neotales/win-registry";
@@ -148,11 +159,48 @@ key.getSubKeyNames();
 
 ## Runtime Support
 
-This ESM-only npm package supports Node, Bun, and Deno on Windows. Node uses native `node:ffi` when enabled by the current Node release, otherwise it falls back to the optional `koffi` dependency. Bun uses native FFI. Deno requires `--allow-ffi`; when its backend cannot load, `isRegistryAvailable()` returns `false`.
+This ESM-only npm package supports Node, Bun, and Deno on Windows. Node uses
+native `node:ffi` when enabled by the current Node release (run with
+`--experimental-ffi` on releases that ship it behind a flag), otherwise it falls
+back to the optional `koffi` dependency. Bun uses native FFI. Deno requires
+`--allow-ffi`; when its backend cannot load, `isRegistryAvailable()` returns
+`false`.
+
+## Backend Lifecycle
+
+The FFI backends open `advapi32.dll` lazily on the first registry operation, so
+no explicit setup is required. Each backend module also exports an explicit
+lifecycle for callers who want deterministic control over the native library:
+
+| Function     | Description                                                                   |
+| ------------ | ----------------------------------------------------------------------------- |
+| `open()`     | Eagerly loads the FFI module and opens `advapi32.dll`. Idempotent while open. |
+| `isOpened()` | Returns `true` while the backend holds an opened library handle.              |
+| `close()`    | Unloads `advapi32.dll` so a later `open()` starts from a clean state.         |
+
+```typescript
+import { Registry } from "@neotales/win-registry";
+import { close, isOpened, open } from "@neotales/win-registry/dist/ffi_node.js";
+
+open(); // fail fast if node:ffi or koffi is unavailable
+console.log(isOpened()); // true
+
+using key = Registry.openKey("HKCU\\Software");
+console.log(key.getSubKeyNames());
+
+close();
+```
+
+Use the same pattern with `dist/ffi_bun.js` (Bun), `dist/ffi_deno.js` (Deno),
+and `dist/ffi_koffi.js` (koffi fallback). Close all registry keys before calling
+`close()`.
 
 ## Resource Management
 
-Every key returned by `Registry.openKey()` or `Registry.createKey()` owns a Windows registry handle. Prefer `using` so the handle closes at the end of its lexical scope, even when an operation throws. Predefined root keys such as `Registry.HKCU` do not need closing.
+Every key returned by `Registry.openKey()` or `Registry.createKey()` owns a
+Windows registry handle. Prefer `using` so the handle closes at the end of its
+lexical scope, even when an operation throws. Predefined root keys such as
+`Registry.HKCU` do not need closing.
 
 ```ts
 using key = Registry.openKey("HKCU\\Software");

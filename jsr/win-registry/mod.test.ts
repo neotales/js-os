@@ -27,7 +27,13 @@ Deno.test(
   },
 );
 
-Deno.test("registry reads Windows version values", { ignore: Deno.build.os !== "windows" }, () => {
-  using key = Registry.openKey("HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion");
-  if (!key.getString("ProductName")) throw new Error("Expected Windows product name");
+Deno.test("registry reads Windows version values", {
+  ignore: Deno.build.os !== "windows",
+}, () => {
+  using key = Registry.openKey(
+    "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+  );
+  if (!key.getString("ProductName")) {
+    throw new Error("Expected Windows product name");
+  }
 });

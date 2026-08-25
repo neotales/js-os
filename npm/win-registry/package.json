@@ -1,6 +1,6 @@
 {
   "name": "@neotales/win-registry",
-  "version": "0.0.0-alpha.0",
+  "version": "0.0.0-alpha.1",
   "description": "Cross-runtime Windows Registry API using runtime-specific FFI backends.",
   "keywords": [
     "advapi32",
@@ -37,6 +37,22 @@
     "./types": {
       "types": "./types/types.d.ts",
       "import": "./esm/types.js"
+    },
+    "./ffi-bun": {
+      "types": "./types/ffi_bun.d.ts",
+      "import": "./esm/ffi_bun.js"
+    },
+    "./ffi-deno": {
+      "types": "./types/ffi_deno.d.ts",
+      "import": "./esm/ffi_deno.js"
+    },
+    "./ffi-node": {
+      "types": "./types/ffi_node.d.ts",
+      "import": "./esm/ffi_node.js"
+    },
+    "./ffi-koffi": {
+      "types": "./types/ffi_koffi.d.ts",
+      "import": "./esm/ffi_koffi.js"
     }
   },
   "publishConfig": {

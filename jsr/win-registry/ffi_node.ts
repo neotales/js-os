@@ -1,7 +1,9 @@
 /**
- * Node.js FFI backend for Windows Registry operations using `node:ffi`, which
- * is experimental in current Node.js releases.
+ * Node.js FFI backend for Windows Registry operations.
  *
+ * Loads `advapi32.dll` through `node:ffi`, which is experimental in current
+ * Node.js releases. The specifier is required dynamically through a variable
+ * so that bundlers and other runtimes never resolve `node:ffi` statically.
  * Because opening the library is a side effectful operation, the backend
  * exposes an explicit lifecycle: {@linkcode open} eagerly loads `node:ffi` and
  * opens `advapi32.dll`, {@linkcode close} unloads it again, and
@@ -12,16 +14,16 @@
  * @internal
  */
 
-import type { RegistryBackend } from "./types.js";
-import { RegistryError } from "./registry_error.js";
-import { readU32, readU64, writeU32 } from "./binary.js";
+import type { RegistryBackend } from "./types.ts";
+import { RegistryError } from "./registry_error.ts";
+import { readU32, readU64, writeU32 } from "./binary.ts";
 import {
   ERROR_MORE_DATA,
   ERROR_NO_MORE_ITEMS,
   ERROR_SUCCESS,
   stringToWide,
   wideToString,
-} from "./types.js";
+} from "./types.ts";
 import { createRequire } from "node:module";
 
 /** Minimal shape of the `node:ffi` module surface used by this backend. */
@@ -45,11 +47,11 @@ interface NodeFfiLibrary {
 }
 
 /**
- * Imports `node:ffi` through a variable specifier via `createRequire`. This
- * mirrors the dynamic-import pattern used by the other backends and avoids a
- * static specifier that tools would try to resolve. Verifies that the module
- * actually loaded and exposes the expected API surface, since `node:ffi` is
- * experimental and may be missing or flagged off in some builds.
+ * Imports `node:ffi` through a variable specifier via `createRequire` so the
+ * module is never statically resolved by runtimes or tools that lack support
+ * for it. Verifies that the module actually loaded and exposes the expected
+ * API surface, since `node:ffi` is experimental and may be missing or flagged
+ * off in some builds.
  *
  * @returns The subset of the `node:ffi` API used by this backend.
  * @throws {Error} If `node:ffi` cannot be loaded or does not expose
@@ -61,12 +63,15 @@ function loadNodeFfi(): NodeFfiModule {
   const require = createRequire(import.meta.url);
   try {
     const ffi = require(specifier) as Partial<NodeFfiModule> | undefined | null;
+
     if (!ffi || typeof ffi.dlopen !== "function") {
       throw new TypeError("module does not expose dlopen");
     }
+
     return ffi as NodeFfiModule;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
+
     throw new RegistryError(
       `Failed to load "${specifier}", which is experimental and may be unavailable in this Node.js build: ${reason}`,
       { cause: error },
@@ -76,6 +81,28 @@ function loadNodeFfi(): NodeFfiModule {
 
 let ffiModule: NodeFfiModule | null = null;
 let library: NodeFfiLibrary | null = null;
+
+/**
+ * Loads `node:ffi` and opens `advapi32.dll` exactly once, reusing the opened
+ * library on subsequent calls.
+ *
+ * @returns The opened native library.
+ * @throws {Error} If `node:ffi` cannot be loaded or `advapi32.dll` cannot be
+ * opened.
+ */
+function ensureLoaded(): NodeFfiLibrary {
+  if (library) {
+    return library;
+  }
+
+  if (!ffiModule) {
+    ffiModule = loadNodeFfi();
+  }
+
+  library = ffiModule.dlopen("advapi32.dll", SYMBOLS);
+
+  return library;
+}
 
 /**
  * The `advapi32.dll` symbol table requested from `node:ffi`.
@@ -163,21 +190,6 @@ const SYMBOLS = {
 };
 
 /**
- * Loads `node:ffi` and opens `advapi32.dll` exactly once, reusing the opened
- * library on subsequent calls.
- *
- * @returns The opened native library.
- * @throws {Error} If `node:ffi` cannot be loaded or `advapi32.dll` cannot be
- * opened.
- */
-function ensureLoaded(): NodeFfiLibrary {
-  if (library) return library;
-  if (!ffiModule) ffiModule = loadNodeFfi();
-  library = ffiModule.dlopen("advapi32.dll", SYMBOLS);
-  return library;
-}
-
-/**
  * Returns the resolved FFI entry points, loading `node:ffi` and opening
  * `advapi32.dll` if {@linkcode open} has not been called yet.
  *
@@ -200,7 +212,7 @@ function fns(): Record<string, (...args: unknown[]) => unknown> {
  *
  * @example Usage
  * ```ts
- * import { open } from "@neotales/win-registry";
+ * import { open } from "@neotales/win-registry/ffi-node";
  *
  * open();
  * console.log("advapi32.dll is ready");
@@ -218,7 +230,7 @@ export function open(): void {
  *
  * @example Usage
  * ```ts
- * import { isOpened } from "@neotales/win-registry";
+ * import { isOpened } from "@neotales/win-registry/ffi-node";
  *
  * console.log(isOpened());
  * ```
@@ -234,13 +246,16 @@ export function isOpened(): boolean {
  *
  * @example Usage
  * ```ts
- * import { close } from "@neotales/win-registry";
+ * import { close } from "@neotales/win-registry/ffi-node";
  *
  * close();
  * ```
  */
 export function close(): void {
-  if (!library) return;
+  if (!library) {
+    return;
+  }
+
   try {
     library.close?.();
   } finally {
@@ -267,8 +282,9 @@ function toStatus(status: unknown): number {
  *
  * @example Usage
  * ```ts
- * import { backend, close, open } from "@neotales/win-registry/dist/ffi_node.js";
- * import { HKEY_CURRENT_USER } from "@neotales/win-registry";
+ * import { close, open } from "@neotales/win-registry/ffi-node";
+ * import { backend } from "@neotales/win-registry/ffi-node";
+ * import { HKEY_CURRENT_USER } from "@neotales/win-registry/types";
  *
  * open();
  * try {
@@ -293,7 +309,9 @@ export const backend: RegistryBackend = {
   openKey(hkey, subKey, access) {
     const wSubKey = stringToWide(subKey);
     const resultBuf = new Uint8Array(8);
-    const status = fns().RegOpenKeyExW(hkey, wSubKey, 0, access, resultBuf);
+    const status = toStatus(
+      fns().RegOpenKeyExW(hkey, wSubKey, 0, access, resultBuf),
+    );
 
     if (status !== ERROR_SUCCESS) {
       throw new RegistryError(
@@ -303,6 +321,7 @@ export const backend: RegistryBackend = {
 
     return readU64(resultBuf);
   },
+
   /**
    * Creates a subkey of a predefined root handle, or opens it when it exists.
    *
@@ -316,18 +335,19 @@ export const backend: RegistryBackend = {
     const wSubKey = stringToWide(subKey);
     const handleBuf = new Uint8Array(8);
     const dispositionBuf = new Uint8Array(4);
-    const status = fns().RegCreateKeyExW(
-      hkey,
-      wSubKey,
-      0,
-      null,
-      0,
-      access,
-      null,
-      handleBuf,
-      dispositionBuf,
+    const status = toStatus(
+      fns().RegCreateKeyExW(
+        hkey,
+        wSubKey,
+        0,
+        null,
+        0,
+        access,
+        null,
+        handleBuf,
+        dispositionBuf,
+      ),
     );
-
     if (status !== ERROR_SUCCESS) {
       throw new RegistryError(
         `RegCreateKeyExW failed for "${subKey}" with error code ${status}`,
@@ -339,6 +359,7 @@ export const backend: RegistryBackend = {
       created: readU32(dispositionBuf) === 1,
     };
   },
+
   /**
    * Closes an opened key handle.
    *
@@ -347,6 +368,7 @@ export const backend: RegistryBackend = {
   closeKey(hkey) {
     fns().RegCloseKey(hkey);
   },
+
   /**
    * Deletes a subkey.
    *
@@ -357,6 +379,7 @@ export const backend: RegistryBackend = {
   deleteKey(hkey, subKey) {
     return toStatus(fns().RegDeleteKeyW(hkey, stringToWide(subKey)));
   },
+
   /**
    * Deletes a value.
    *
@@ -367,6 +390,7 @@ export const backend: RegistryBackend = {
   deleteValue(hkey, valueName) {
     return toStatus(fns().RegDeleteValueW(hkey, stringToWide(valueName)));
   },
+
   /**
    * Queries summary information about a key.
    *
@@ -381,19 +405,21 @@ export const backend: RegistryBackend = {
     const maxValueNameLenBuf = new Uint8Array(4);
     const maxValueLenBuf = new Uint8Array(4);
     const lastWriteTimeBuf = new Uint8Array(8);
-    const status = fns().RegQueryInfoKeyW(
-      hkey,
-      null,
-      null,
-      null,
-      subKeyCountBuf,
-      maxSubKeyLenBuf,
-      null,
-      valueCountBuf,
-      maxValueNameLenBuf,
-      maxValueLenBuf,
-      null,
-      lastWriteTimeBuf,
+    const status = toStatus(
+      fns().RegQueryInfoKeyW(
+        hkey,
+        null,
+        null,
+        null,
+        subKeyCountBuf,
+        maxSubKeyLenBuf,
+        null,
+        valueCountBuf,
+        maxValueNameLenBuf,
+        maxValueLenBuf,
+        null,
+        lastWriteTimeBuf,
+      ),
     );
 
     if (status !== ERROR_SUCCESS) {
@@ -411,6 +437,7 @@ export const backend: RegistryBackend = {
       lastWriteTime: Number(readU64(lastWriteTimeBuf)),
     };
   },
+
   /**
    * Enumerates a subkey name by index.
    *
@@ -426,15 +453,17 @@ export const backend: RegistryBackend = {
 
     writeU32(sizeBuf, nameBufferSize + 1);
 
-    const status = fns().RegEnumKeyExW(
-      hkey,
-      index,
-      nameBuf,
-      sizeBuf,
-      null,
-      null,
-      null,
-      null,
+    const status = toStatus(
+      fns().RegEnumKeyExW(
+        hkey,
+        index,
+        nameBuf,
+        sizeBuf,
+        null,
+        null,
+        null,
+        null,
+      ),
     );
 
     if (status === ERROR_NO_MORE_ITEMS) {
@@ -447,6 +476,7 @@ export const backend: RegistryBackend = {
 
     return wideToString(nameBuf, readU32(sizeBuf) * 2);
   },
+
   /**
    * Enumerates a value name by index.
    *
@@ -463,16 +493,19 @@ export const backend: RegistryBackend = {
     writeU32(sizeBuf, nameBufferSize + 1);
 
     const typeBuf = new Uint8Array(4);
-    const status = fns().RegEnumValueW(
-      hkey,
-      index,
-      nameBuf,
-      sizeBuf,
-      null,
-      typeBuf,
-      null,
-      null,
+    const status = toStatus(
+      fns().RegEnumValueW(
+        hkey,
+        index,
+        nameBuf,
+        sizeBuf,
+        null,
+        typeBuf,
+        null,
+        null,
+      ),
     );
+
     if (status === ERROR_NO_MORE_ITEMS) {
       return null;
     }
@@ -483,6 +516,7 @@ export const backend: RegistryBackend = {
 
     return wideToString(nameBuf, readU32(sizeBuf) * 2);
   },
+
   /**
    * Reads a raw value and its type.
    *
@@ -498,13 +532,8 @@ export const backend: RegistryBackend = {
 
     writeU32(sizeBuf, buffer.length);
 
-    let status = fns().RegQueryValueExW(
-      hkey,
-      wName,
-      null,
-      typeBuf,
-      buffer,
-      sizeBuf,
+    let status = toStatus(
+      fns().RegQueryValueExW(hkey, wName, null, typeBuf, buffer, sizeBuf),
     );
 
     if (status === ERROR_MORE_DATA) {
@@ -513,13 +542,8 @@ export const backend: RegistryBackend = {
 
       writeU32(sizeBuf, needed);
 
-      status = fns().RegQueryValueExW(
-        hkey,
-        wName,
-        null,
-        typeBuf,
-        bigBuf,
-        sizeBuf,
+      status = toStatus(
+        fns().RegQueryValueExW(hkey, wName, null, typeBuf, bigBuf, sizeBuf),
       );
 
       if (status !== ERROR_SUCCESS) {
@@ -531,6 +555,7 @@ export const backend: RegistryBackend = {
         data: bigBuf,
       };
     }
+
     if (status !== ERROR_SUCCESS) {
       return null;
     }
@@ -540,6 +565,7 @@ export const backend: RegistryBackend = {
       data: buffer.subarray(0, readU32(sizeBuf)),
     };
   },
+
   /**
    * Writes a raw value.
    *
@@ -550,13 +576,15 @@ export const backend: RegistryBackend = {
    * @throws {Error} If `RegSetValueExW` fails.
    */
   setValue(hkey, valueName, type, data) {
-    const status = fns().RegSetValueExW(
-      hkey,
-      stringToWide(valueName),
-      0,
-      type,
-      data,
-      data.length,
+    const status = toStatus(
+      fns().RegSetValueExW(
+        hkey,
+        stringToWide(valueName),
+        0,
+        type,
+        data,
+        data.length,
+      ),
     );
 
     if (status !== ERROR_SUCCESS) {
