@@ -180,7 +180,7 @@ function npmManifest(pkg: PackageJson): Record<string, unknown> {
       build: "tsc -p tsconfig.json",
       test: "node --test esm/*.test.js",
       "test:ffi": "node --experimental-ffi --test esm/*.test.js",
-      "test:bun": "bun test esm/*.test.js",
+      "test:bun": "bun test ./esm",
       "test:deno": "deno test -A esm/*.test.js",
     },
     devDependencies: {
