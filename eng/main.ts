@@ -1761,10 +1761,10 @@ async function buildModule(name: string): Promise<void> {
 
 async function verifyModuleBuild(name: string): Promise<void> {
   await buildModule(name);
-  const status = await capture("git", ["status", "--porcelain", "--", join(npmDir, name)]);
-  if (status.stdout.trim().length > 0) {
+  const status = await git(["status", "--porcelain", "--", join(npmDir, name)]);
+  if (status.length > 0) {
     console.error(`Built outputs for npm/${name} differ from the committed files:`);
-    console.error(status.stdout.trim());
+    console.error(status);
     throw new Error(
       `Generated files must be stored in source. Run \`deno task build ${name}\` and commit the results.`,
     );
