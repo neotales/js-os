@@ -1,7 +1,7 @@
 import { equal, ok, strictEqual, throws } from "node:assert/strict";
 import process from "node:process";
 import { test } from "node:test";
-import { isRegistryAvailable, Registry, RegistryError } from "../src/index.js";
+import { isRegistryAvailable, Registry, RegistryError } from "./index.js";
 import {
   HKEY_CURRENT_USER,
   HKEY_LOCAL_MACHINE,
@@ -10,7 +10,7 @@ import {
   stringToWide,
   wideToMultiString,
   wideToString,
-} from "../src/types.js";
+} from "./types.js";
 
 const WINDOWS = process.platform === "win32";
 const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||

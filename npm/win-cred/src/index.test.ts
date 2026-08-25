@@ -11,8 +11,8 @@ import {
   readSecret,
   removeCredential,
   saveCredential,
-} from "../src/index.js";
-import { stringToWide, wideToString } from "../src/types.js";
+} from "./index.js";
+import { stringToWide, wideToString } from "./types.js";
 
 const WINDOWS = process.platform === "win32";
 const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||

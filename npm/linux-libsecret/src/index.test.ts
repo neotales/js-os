@@ -8,7 +8,7 @@ import {
   readSecret,
   removeSecret,
   saveSecret,
-} from "../src/index.js";
+} from "./index.js";
 
 const LINUX = process.platform === "linux";
 const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||

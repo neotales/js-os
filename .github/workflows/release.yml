@@ -45,7 +45,9 @@ jobs:
           path: artifacts/${{ github.ref_name }}/
           if-no-files-found: error
 
-      - run: |
+      - env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+        run: |
           deno eval '
             const release = JSON.parse(await Deno.readTextFile("artifacts/${{ github.ref_name }}/release.json"));
             for (const pkg of release.packages) {

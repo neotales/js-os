@@ -195,8 +195,15 @@ function npmManifest(pkg: PackageJson): Record<string, unknown> {
 
 function npmIgnore(): string {
   return (
-    ["src/", "tests/", ".test/", "node_modules/", "*.tgz", "*.ts", "tsconfig*.json"].join("\n") +
-    "\n"
+    [
+      "src/",
+      "node_modules/",
+      "*.tgz",
+      "*.ts",
+      "tsconfig*.json",
+      "esm/*.test.js",
+      "types/*.test.d.ts",
+    ].join("\n") + "\n"
   );
 }
 
@@ -1752,6 +1759,18 @@ async function buildModule(name: string): Promise<void> {
   await run("pnpm", ["exec", "tsc", "-p", "tsconfig.json"], directory);
 }
 
+async function verifyModuleBuild(name: string): Promise<void> {
+  await buildModule(name);
+  const status = await capture("git", ["status", "--porcelain", "--", join(npmDir, name)]);
+  if (status.stdout.trim().length > 0) {
+    console.error(`Built outputs for npm/${name} differ from the committed files:`);
+    console.error(status.stdout.trim());
+    throw new Error(
+      `Generated files must be stored in source. Run \`deno task build ${name}\` and commit the results.`,
+    );
+  }
+}
+
 async function testModules(name: string | undefined, runtimes: Set<string>): Promise<void> {
   const modules = name ? [name] : await importedModules();
   if (!modules.length) {
@@ -1762,7 +1781,7 @@ async function testModules(name: string | undefined, runtimes: Set<string>): Pro
   for (const module of modules) {
     if (selected.has("deno"))
       await run("deno", ["test", "-A"], join(jsrDir, module));
-    await buildModule(module);
+    await verifyModuleBuild(module);
     const npmPackage = join(npmDir, module);
     if (selected.has("deno"))
       await run("pnpm", ["test:deno"], npmPackage);
@@ -1822,7 +1841,7 @@ async function releasePrepare(tag: string): Promise<void> {
   });
   await Deno.mkdir(artifacts, { recursive: true });
   for (const pkg of packages) {
-    await buildModule(pkg.module);
+    await verifyModuleBuild(pkg.module);
     await run("pnpm", ["pack", "--pack-destination", artifacts], join(npmDir, pkg.module));
     const tarballs: string[] = [];
     for await (const entry of Deno.readDir(artifacts)) {

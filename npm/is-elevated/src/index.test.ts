@@ -1,8 +1,8 @@
 import { strictEqual } from "node:assert/strict";
 import process from "node:process";
 import { test } from "node:test";
-import { isElevated } from "../src/index.js";
-import { evalIsProcessElevated as evalNodeIsProcessElevated } from "../src/node.js";
+import { isElevated } from "./index.js";
+import { evalIsProcessElevated as evalNodeIsProcessElevated } from "./node.js";
 
 test("isElevated returns a boolean", () => {
   strictEqual(typeof isElevated(), "boolean");

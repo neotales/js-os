@@ -8,7 +8,7 @@ import {
   readSecret,
   removeSecret,
   saveSecret,
-} from "../src/index.js";
+} from "./index.js";
 
 const DARWIN = process.platform === "darwin";
 const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||

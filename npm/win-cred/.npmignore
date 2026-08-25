@@ -1,7 +1,7 @@
 src/
-tests/
-.test/
 node_modules/
 *.tgz
 *.ts
 tsconfig*.json
+esm/*.test.js
+types/*.test.d.ts
