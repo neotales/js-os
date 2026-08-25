@@ -9,7 +9,13 @@
     "declarationDir": "types",
     "strict": true,
     "skipLibCheck": true,
-    "types": ["node", "bun"]
+    "types": [
+      "node",
+      "bun"
+    ],
+    "newLine": "lf"
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts"
+  ]
 }

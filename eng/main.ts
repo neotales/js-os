@@ -178,11 +178,10 @@ function npmManifest(pkg: PackageJson): Record<string, unknown> {
     engines: { node: ">=22" },
     scripts: {
       build: "tsc -p tsconfig.json",
-      "build:test": "tsc -p tsconfig.test.json",
-      test: "pnpm run build:test && node --test .test/tests/*.test.js",
-      "test:ffi": "pnpm run build:test && node --experimental-ffi --test .test/tests/*.test.js",
-      "test:bun": "pnpm run build:test && bun test ./.test/tests",
-      "test:deno": "pnpm run build:test && deno test -A .test/tests",
+      test: "node --test esm/*.test.js",
+      "test:ffi": "node --experimental-ffi --test esm/*.test.js",
+      "test:bun": "bun test esm/*.test.js",
+      "test:deno": "deno test -A esm/*.test.js",
     },
     devDependencies: {
       "@types/bun": "^1.3.14",
@@ -215,6 +214,7 @@ function npmTsConfig(): Record<string, unknown> {
       moduleResolution: "NodeNext",
       rootDir: "src",
       outDir: "esm",
+      newLine: "lf",
       declaration: true,
       declarationDir: "types",
       strict: true,
@@ -222,23 +222,6 @@ function npmTsConfig(): Record<string, unknown> {
       types: ["node", "bun"],
     },
     include: ["src/**/*.ts"],
-  };
-}
-
-function npmTestTsConfig(): Record<string, unknown> {
-  return {
-    compilerOptions: {
-      target: "ES2022",
-      module: "NodeNext",
-      moduleResolution: "NodeNext",
-      rootDir: ".",
-      outDir: ".test",
-      declaration: false,
-      strict: true,
-      skipLibCheck: true,
-      types: ["node", "bun"],
-    },
-    include: ["src/**/*.ts", "tests/**/*.ts"],
   };
 }
 
@@ -573,10 +556,7 @@ test(
     join(destination, "tsconfig.json"),
     JSON.stringify(npmTsConfig(), null, 2) + "\n",
   );
-  await Deno.writeTextFile(
-    join(destination, "tsconfig.test.json"),
-    JSON.stringify(npmTestTsConfig(), null, 2) + "\n",
-  );
+  await Deno.writeTextFile();
   await Deno.writeTextFile(
     join(destination, "README.md"),
     `${
@@ -1054,10 +1034,7 @@ async function writeWinRegistryNpmPackage(
     join(destination, "tsconfig.json"),
     JSON.stringify(npmTsConfig(), null, 2) + "\n",
   );
-  await Deno.writeTextFile(
-    join(destination, "tsconfig.test.json"),
-    JSON.stringify(npmTestTsConfig(), null, 2) + "\n",
-  );
+  await Deno.writeTextFile();
   const testPath = join(destination, "tests", "index.test.ts");
   const tests = (await Deno.readTextFile(testPath))
     .replace(
@@ -1265,10 +1242,7 @@ async function writeWinCredNpmPackage(
     join(destination, "tsconfig.json"),
     JSON.stringify(npmTsConfig(), null, 2) + "\n",
   );
-  await Deno.writeTextFile(
-    join(destination, "tsconfig.test.json"),
-    JSON.stringify(npmTestTsConfig(), null, 2) + "\n",
-  );
+  await Deno.writeTextFile();
 }
 
 function darwinKeychainDenoVault(source: string): string {
@@ -1506,10 +1480,7 @@ async function writeDarwinKeychainPackage(
     join(npm, "tsconfig.json"),
     JSON.stringify(npmTsConfig(), null, 2) + "\n",
   );
-  await Deno.writeTextFile(
-    join(npm, "tsconfig.test.json"),
-    JSON.stringify(npmTestTsConfig(), null, 2) + "\n",
-  );
+  await Deno.writeTextFile();
 }
 
 function linuxLibsecretDenoVault(source: string): string {
@@ -1684,10 +1655,7 @@ Deno.test("libsecret availability reports a boolean", () => {
     join(npm, "tsconfig.json"),
     JSON.stringify(npmTsConfig(), null, 2) + "\n",
   );
-  await Deno.writeTextFile(
-    join(npm, "tsconfig.test.json"),
-    JSON.stringify(npmTestTsConfig(), null, 2) + "\n",
-  );
+  await Deno.writeTextFile();
 }
 
 async function upstreamModules(): Promise<string[]> {

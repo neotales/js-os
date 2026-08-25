@@ -12,7 +12,8 @@
     "types": [
       "node",
       "bun"
-    ]
+    ],
+    "newLine": "lf"
   },
   "include": [
     "src/**/*.ts"
