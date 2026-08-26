@@ -8,6 +8,7 @@
     "modules": "deno run -A ./eng/main.ts modules",
     "build": "deno run -A ./eng/main.ts build",
     "test": "deno run -A ./eng/main.ts test",
+    "test:remote": "deno run -A ./eng/remote-test.ts",
     "lint": "deno run -A ./eng/main.ts lint",
     "fmt": "deno run -A ./eng/main.ts fmt",
     "fmt:check": "deno run -A ./eng/main.ts fmt --check",

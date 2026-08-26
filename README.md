@@ -24,6 +24,7 @@ deno task build <module>
 deno task test <module>
 deno task test <module> --deno
 deno task test <module> --node --bun
+deno task test:remote --ssh user@host <module>
 ```
 
 `modules` lists the upstream packages and their import state. `import` imports one package from
@@ -38,6 +39,10 @@ but dnt cannot reliably transform or resolve those runtime-only specifiers. Deno
 the JSR package for Deno-only APIs, or `npm:@neotales/<module>` when they need the cross-runtime npm
 package. Node uses native FFI when available and otherwise falls back to optional `koffi`; Bun and
 the npm package running under Deno use their native FFI APIs.
+
+`test:remote` archives the local repository (excluding dependencies, artifacts, and Git metadata),
+replaces `~/work/os` on the SSH target, and runs the selected modules through `mise`. Omit module
+arguments to test every imported module. A remote test failure makes the local task fail.
 
 ## Quality
 
