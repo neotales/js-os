@@ -40,6 +40,6 @@ export class RegistryError extends Error {
      * @internal
      */
     static throwUnsupported() {
-        throw new RegistryError("Registry is not supported on this platform or runtime.");
+        throw new RegistryError("Registry is not supported on this platform or runtime. Node.js users without native FFI support should install @neotales/win-registry from npm, which includes a koffi fallback.");
     }
 }
