@@ -17,13 +17,6 @@ export function evalIsProcessElevated(cache = true) {
     if (cache && elevated !== undefined) {
         return elevated;
     }
-    elevated = globalThis.process?.getuid?.() === 0;
-    if (!globalThis.Bun) {
-        return elevated;
-    }
-    if (globalThis.process?.platform !== "win32") {
-        return elevated;
-    }
     const advapi32 = dlopen("Advapi32.dll", {
         OpenProcessToken: { args: [FFIType.ptr, FFIType.u32, FFIType.ptr], returns: FFIType.bool },
         GetTokenInformation: {
@@ -36,24 +29,28 @@ export function evalIsProcessElevated(cache = true) {
         CloseHandle: { args: [FFIType.ptr], returns: FFIType.bool },
         GetLastError: { args: [], returns: FFIType.i32 },
     });
-    const TOKEN_QUERY = 0x0008;
-    const TOKEN_ELEVATION = 20;
-    const processHandle = kernel32.symbols.GetCurrentProcess();
-    const tokenHandle = new BigUint64Array(1);
-    const tokenHandlePtr = ptr(tokenHandle);
-    const success = advapi32.symbols.OpenProcessToken(processHandle, TOKEN_QUERY, tokenHandlePtr);
-    if (!success)
-        throw new Error("Failed to open process token");
     try {
-        const tokenInfo = new Uint8Array(4);
-        const returnLength = new Uint32Array(1);
-        const result = advapi32.symbols.GetTokenInformation(tokenHandle[0], TOKEN_ELEVATION, ptr(tokenInfo), 4, ptr(returnLength));
-        if (!result)
-            throw new Error(`Failed to get token information ${kernel32.symbols.GetLastError()}`);
-        elevated = tokenInfo[0] !== 0;
-        return elevated;
+        const TOKEN_QUERY = 0x0008;
+        const TOKEN_ELEVATION = 20;
+        const tokenHandle = new BigUint64Array(1);
+        const success = advapi32.symbols.OpenProcessToken(kernel32.symbols.GetCurrentProcess(), TOKEN_QUERY, ptr(tokenHandle));
+        if (!success)
+            throw new Error("Failed to open process token");
+        try {
+            const tokenInfo = new Uint8Array(4);
+            const returnLength = new Uint32Array(1);
+            const result = advapi32.symbols.GetTokenInformation(tokenHandle[0], TOKEN_ELEVATION, ptr(tokenInfo), 4, ptr(returnLength));
+            if (!result)
+                throw new Error(`Failed to get token information ${kernel32.symbols.GetLastError()}`);
+            elevated = tokenInfo[0] !== 0;
+            return elevated;
+        }
+        finally {
+            kernel32.symbols.CloseHandle(tokenHandle[0]);
+        }
     }
     finally {
-        kernel32.symbols.CloseHandle(tokenHandlePtr);
+        advapi32.close();
+        kernel32.close();
     }
 }

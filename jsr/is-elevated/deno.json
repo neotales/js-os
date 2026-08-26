@@ -1,7 +1,7 @@
 {
   "name": "@neotales/is-elevated",
   "version": "0.0.0-alpha.0",
-  "description": "Detect whether the current process is elevated. Deno only.",
+  "description": "Detect whether the current process is elevated.",
   "license": "MIT",
   "exports": {
     ".": "./mod.ts"

@@ -1,5 +1,35 @@
-/// <reference types="@types/bun" />
-import { dlopen, FFIType, ptr } from "bun:ffi";
+/**
+ * Implements native Windows elevation detection through Bun FFI.
+ *
+ * @module @neotales/is-elevated/ffi_bun
+ * @internal
+ */
+
+interface BunFfiLibrary {
+  symbols: Record<string, (...args: unknown[]) => unknown>;
+  close(): void;
+}
+
+interface BunFfiModule {
+  FFIType: { ptr: unknown; u32: unknown; u64: unknown; bool: unknown; i32: unknown };
+  dlopen(
+    name: string,
+    symbols: Record<string, { args: unknown[]; returns: unknown }>,
+  ): BunFfiLibrary;
+  ptr(value: ArrayBufferView): unknown;
+}
+
+const specifier = "bun:ffi";
+let ffi: BunFfiModule;
+
+try {
+  ffi = await import(/* @vite-ignore */ specifier) as BunFfiModule;
+} catch (cause) {
+  throw new Error(
+    "Unable to load bun:ffi. See https://github.com/neotales/js-os/blob/dev/jsr/is-elevated/README.md#runtime-support",
+    { cause },
+  );
+}
 
 let elevated: boolean | undefined;
 
@@ -8,18 +38,12 @@ let elevated: boolean | undefined;
  *
  * @param cache - Whether to reuse the result from the first evaluation.
  * @returns Whether the process has elevated privileges.
- * @example
- * ```ts
- * import { evalIsProcessElevated } from "./ffi_bun.js";
- *
- * const elevated = evalIsProcessElevated();
- * ```
  */
 export function evalIsProcessElevated(cache = true): boolean {
-  if (cache && elevated !== undefined) {
+  if (cache && elevated !== undefined)
     return elevated;
-  }
 
+  const { FFIType, dlopen, ptr } = ffi;
   const advapi32 = dlopen("Advapi32.dll", {
     OpenProcessToken: { args: [FFIType.ptr, FFIType.u32, FFIType.ptr], returns: FFIType.bool },
     GetTokenInformation: {
@@ -37,13 +61,13 @@ export function evalIsProcessElevated(cache = true): boolean {
     const TOKEN_QUERY = 0x0008;
     const TOKEN_ELEVATION = 20;
     const tokenHandle = new BigUint64Array(1);
-    const success = advapi32.symbols.OpenProcessToken(
+    const opened = advapi32.symbols.OpenProcessToken(
       kernel32.symbols.GetCurrentProcess(),
       TOKEN_QUERY,
       ptr(tokenHandle),
     );
 
-    if (!success)
+    if (!opened)
       throw new Error("Failed to open process token");
 
     try {
@@ -56,14 +80,15 @@ export function evalIsProcessElevated(cache = true): boolean {
         4,
         ptr(returnLength),
       );
+
       if (!result)
-        throw new Error(`Failed to get token information ${kernel32.symbols.GetLastError()}`);
+        throw new Error(`Failed to get token information (${kernel32.symbols.GetLastError()})`);
 
       elevated = tokenInfo[0] !== 0;
 
       return elevated;
     } finally {
-      kernel32.symbols.CloseHandle(tokenHandle[0] as unknown as ReturnType<typeof ptr>);
+      kernel32.symbols.CloseHandle(tokenHandle[0]);
     }
   } finally {
     advapi32.close();

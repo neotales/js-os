@@ -5,7 +5,6 @@
  */
 
 let elevated: boolean | undefined;
-const deno = Deno;
 
 /**
  * Reports whether the current process is running with elevated privileges.
@@ -20,22 +19,24 @@ const deno = Deno;
  * ```
  */
 export function evalIsProcessElevated(cache = true): boolean {
-  if (!cache || elevated === undefined) {
-    elevated = deno.uid() === 0;
-  }
-
-  if (deno.build.os !== "windows") {
+  if (Deno.build.os !== "windows") {
+    if (!cache || elevated === undefined)
+      elevated = Deno.uid() === 0;
     return elevated;
   }
 
-  const advapi32 = deno.dlopen("Advapi32.dll", {
+  if (cache && elevated !== undefined)
+    return elevated;
+
+  const advapi32 = Deno.dlopen("Advapi32.dll", {
     OpenProcessToken: { parameters: ["pointer", "u32", "pointer"], result: "bool" },
     GetTokenInformation: {
       parameters: ["u64", "u32", "pointer", "u32", "pointer"],
       result: "bool",
     },
   });
-  const kernel32 = deno.dlopen("Kernel32.dll", {
+
+  const kernel32 = Deno.dlopen("Kernel32.dll", {
     GetCurrentProcess: { parameters: [], result: "pointer" },
     CloseHandle: { parameters: ["pointer"], result: "bool" },
     GetLastError: { parameters: [], result: "i32" },
@@ -46,8 +47,9 @@ export function evalIsProcessElevated(cache = true): boolean {
     const TOKEN_ELEVATION = 20;
     const processHandle = kernel32.symbols.GetCurrentProcess();
     const tokenHandle = new BigUint64Array(1);
-    const tokenHandlePtr = deno.UnsafePointer.of(tokenHandle);
+    const tokenHandlePtr = Deno.UnsafePointer.of(tokenHandle);
     const success = advapi32.symbols.OpenProcessToken(processHandle, TOKEN_QUERY, tokenHandlePtr);
+
     if (!success) {
       throw new Error("Failed to open process token");
     }
@@ -58,17 +60,19 @@ export function evalIsProcessElevated(cache = true): boolean {
       const result = advapi32.symbols.GetTokenInformation(
         tokenHandle[0],
         TOKEN_ELEVATION,
-        deno.UnsafePointer.of(tokenInfo),
+        Deno.UnsafePointer.of(tokenInfo),
         4,
-        deno.UnsafePointer.of(returnLength),
+        Deno.UnsafePointer.of(returnLength),
       );
-      if (!result) {
+
+      if (!result)
         throw new Error("Failed to get token information " + kernel32.symbols.GetLastError());
-      }
+
       elevated = tokenInfo[0] !== 0;
+
       return elevated;
     } finally {
-      kernel32.symbols.CloseHandle(tokenHandlePtr);
+      kernel32.symbols.CloseHandle(Deno.UnsafePointer.create(tokenHandle[0]));
     }
   } finally {
     advapi32.close();

@@ -1,4 +1,4 @@
-import { isElevated } from "./mod.ts";
+import { isElevated, isElevatedAvailable } from "./mod.ts";
 
 Deno.test(
   "isElevated matches effective uid semantics on Unix-like systems",
@@ -12,7 +12,30 @@ Deno.test(
 );
 
 Deno.test("isElevated returns a boolean", () => {
+  if (Deno.build.os === "windows" && !isElevatedAvailable())
+    return;
   if (typeof isElevated() !== "boolean") {
     throw new Error("Expected a boolean");
   }
 });
+
+Deno.test("isElevatedAvailable returns a boolean", () => {
+  if (typeof isElevatedAvailable() !== "boolean") {
+    throw new Error("Expected a boolean");
+  }
+});
+
+Deno.test(
+  "isElevated explains unavailable Windows FFI",
+  { ignore: Deno.build.os !== "windows" || isElevatedAvailable() },
+  () => {
+    try {
+      isElevated();
+      throw new Error("Expected isElevated to throw");
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("#runtime-support")) {
+        throw error;
+      }
+    }
+  },
+);

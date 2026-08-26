@@ -31,16 +31,14 @@ export function evalIsProcessElevated(cache = true) {
     const processHandle = GetCurrentProcess();
     const tokenOut = [null];
     const opened = OpenProcessToken(processHandle, TOKEN_QUERY, tokenOut);
-    if (!opened) {
+    if (!opened)
         throw new Error(`Failed to open process token (${GetLastError()})`);
-    }
     try {
         const tokenInfo = new Uint8Array(4);
         const returnLength = [0];
-        const ok = GetTokenInformation(tokenOut[0], TOKEN_ELEVATION, tokenInfo, 4, returnLength);
-        if (!ok) {
+        const result = GetTokenInformation(tokenOut[0], TOKEN_ELEVATION, tokenInfo, 4, returnLength);
+        if (!result)
             throw new Error(`Failed to get token information (${GetLastError()})`);
-        }
         elevated = tokenInfo[0] !== 0;
         return elevated;
     }

@@ -20,13 +20,8 @@ const deno = (globalThis as typeof globalThis & { Deno?: any }).Deno;
  * ```
  */
 export function evalIsProcessElevated(cache = true): boolean {
-  if (!cache || elevated === undefined) {
-    elevated = deno.uid() === 0;
-  }
-
-  if (deno.build.os !== "windows") {
+  if (cache && elevated !== undefined)
     return elevated;
-  }
 
   const advapi32 = deno.dlopen("Advapi32.dll", {
     OpenProcessToken: { parameters: ["pointer", "u32", "pointer"], result: "bool" },
@@ -48,9 +43,9 @@ export function evalIsProcessElevated(cache = true): boolean {
     const tokenHandle = new BigUint64Array(1);
     const tokenHandlePtr = deno.UnsafePointer.of(tokenHandle);
     const success = advapi32.symbols.OpenProcessToken(processHandle, TOKEN_QUERY, tokenHandlePtr);
-    if (!success) {
+
+    if (!success)
       throw new Error("Failed to open process token");
-    }
 
     try {
       const tokenInfo = new Uint8Array(4);
@@ -62,13 +57,15 @@ export function evalIsProcessElevated(cache = true): boolean {
         4,
         deno.UnsafePointer.of(returnLength),
       );
-      if (!result) {
+
+      if (!result)
         throw new Error("Failed to get token information " + kernel32.symbols.GetLastError());
-      }
+
       elevated = tokenInfo[0] !== 0;
+
       return elevated;
     } finally {
-      kernel32.symbols.CloseHandle(tokenHandlePtr);
+      kernel32.symbols.CloseHandle(deno.UnsafePointer.create(tokenHandle[0]));
     }
   } finally {
     advapi32.close();

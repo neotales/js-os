@@ -64,15 +64,24 @@ On Windows, the package opens the current process token and calls `GetTokenInfor
 
 This intentionally does not use `Shell32.IsUserAnAdmin`. That API checks administrator-group membership rather than the current process token, so it can disagree under User Account Control when an administrator account is running with a filtered, non-elevated token. `TokenElevation` reports the process state directly.
 
-## Runtime Notes
+## Runtime Support
 
-Node.js uses either `node:ffi` or the optional `koffi` peer dependency when available. Bun and Deno use their native FFI support.
-Tests for OS-specific behavior are skipped when the current runtime does not support the required platform semantics.
+This npm package supports Node, Bun, and Deno. Deno users can import it with
+`npm:@neotales/is-elevated`. Call `isElevatedAvailable()` before relying on
+Windows elevation detection when the runtime's FFI configuration may be unknown.
+
+- **Deno**: run with `--allow-ffi`.
+- **Bun**: the native `bun:ffi` backend is selected automatically.
+- **Node.js**: see [Node.js FFI](#nodejs-ffi).
+
+## Node.js FFI
+
+On Windows, Node.js requires a native FFI backend. Run Node >= 26 with
+`--experimental-ffi` to enable `node:ffi`, or install koffi with
+`npm install koffi` when optional dependencies were omitted or unavailable.
+When neither is available, `isElevatedAvailable()` returns `false` and
+`isElevated()` throws an error that links to this section.
 
 ## License
 
 [MIT License](./LICENSE.md)
-
-## Runtime Support
-
-This npm package supports Node, Bun, and Deno. Deno users can import it with `npm:@neotales/is-elevated`; use the JSR package for the Deno-only implementation.
