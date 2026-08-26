@@ -244,8 +244,8 @@ platforms, or when FFI permissions are absent, `isRegistryAvailable()` returns
 `false` and registry operations throw `RegistryError`.
 
 Run Deno with `--allow-ffi`. Run Node.js with `--experimental-ffi` to use the
-native `node:ffi` backend; without it, the koffi fallback (npm package) is used.
-Use `npm:@neotales/win-registry` when a project needs the cross-runtime npm
+native `node:ffi` backend. The JSR package has no koffi fallback; use
+`npm:@neotales/win-registry` when a Node.js project needs the koffi-backed npm
 package.
 
 ### Remediation

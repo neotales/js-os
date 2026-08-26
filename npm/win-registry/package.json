@@ -1,6 +1,6 @@
 {
   "name": "@neotales/win-registry",
-  "version": "0.0.0-alpha.1",
+  "version": "0.0.0-alpha.2",
   "description": "Cross-runtime Windows Registry API using runtime-specific FFI backends.",
   "keywords": [
     "advapi32",
