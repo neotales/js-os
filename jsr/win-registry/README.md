@@ -248,6 +248,17 @@ native `node:ffi` backend; without it, the koffi fallback (npm package) is used.
 Use `npm:@neotales/win-registry` when a project needs the cross-runtime npm
 package.
 
+### Remediation
+
+When registry operations throw `RegistryError` with "not supported":
+
+- **Deno**: run with `--allow-ffi`.
+- **Node.js**: use Node >= 26 with `--experimental-ffi`, or install the npm
+  package [`@neotales/win-registry`](https://www.npmjs.com/package/@neotales/win-registry),
+  which bundles a koffi fallback that works without the experimental flag.
+- See [Backend Lifecycle](#backend-lifecycle) for how backends are detected and
+  loaded.
+
 ## Backend Lifecycle
 
 The FFI backends open `advapi32.dll` lazily on the first registry operation, so

@@ -43,7 +43,16 @@ export class RegistryError extends Error {
    */
   static throwUnsupported(): never {
     throw new RegistryError(
-      "Registry is not supported on this platform or runtime. Node.js users without native FFI support should install @neotales/win-registry from npm, which includes a koffi fallback.",
+      [
+        "Windows Registry operations are not supported on this platform or runtime.",
+        "Remediation:",
+        "- Deno: run with --allow-ffi.",
+        "- Node.js: use Node >= 26 with --experimental-ffi so the native",
+        "  node:ffi backend can load, or install the npm package",
+        "  @neotales/win-registry instead, which bundles a koffi fallback that",
+        "  works without the experimental flag.",
+        "See https://github.com/neotales/js-os/blob/dev/jsr/win-registry/README.md#runtime-support",
+      ].join("\n"),
     );
   }
 }

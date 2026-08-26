@@ -166,6 +166,19 @@ back to the optional `koffi` dependency. Bun uses native FFI. Deno requires
 `--allow-ffi`; when its backend cannot load, `isRegistryAvailable()` returns
 `false`.
 
+### Remediation
+
+When registry operations throw `RegistryError` with "not supported":
+
+- Ensure the optional `koffi` dependency is installed: `npm i koffi`. It is
+  skipped when installing with `--omit=optional` or when native build scripts
+  are blocked.
+- On Node >= 26, run with `--experimental-ffi` to prefer the native `node:ffi`
+  backend over koffi.
+- On Deno, run with `--allow-ffi`.
+- See [Backend Lifecycle](#backend-lifecycle) for how backends are detected and
+  loaded.
+
 ## Backend Lifecycle
 
 The FFI backends open `advapi32.dll` lazily on the first registry operation, so

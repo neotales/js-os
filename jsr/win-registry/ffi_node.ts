@@ -73,7 +73,7 @@ function loadNodeFfi(): NodeFfiModule {
     const reason = error instanceof Error ? error.message : String(error);
 
     throw new RegistryError(
-      `Failed to load "${specifier}", which is experimental and may be unavailable in this Node.js build: ${reason}`,
+      `Failed to load "${specifier}", which is experimental and may be unavailable in this Node.js build: ${reason}. Run with --experimental-ffi on Node >= 26, or install the npm package @neotales/win-registry for a koffi fallback that works without the flag`,
       { cause: error },
     );
   }
