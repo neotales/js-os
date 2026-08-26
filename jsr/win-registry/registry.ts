@@ -118,6 +118,10 @@ if (isWindowsPlatform) {
       : runtime === "bun"
       ? (await import("./ffi_bun.ts")).backend
       : (await import("./ffi_node.ts")).backend;
+    // Backends load their native library lazily, so a successful module
+    // import does not prove FFI works. Probe-open now so
+    // isRegistryAvailable() reports the truth and failures surface here.
+    (driver as { open?: () => void }).open?.();
     isSupported = true;
   } catch {
     // The FFI backend requires native access and a loadable Windows library.

@@ -95,6 +95,7 @@ if (globals.process?.platform === "win32") {
   if (typeof globals.Deno !== "undefined") {
     try {
       driver = require("./ffi_deno.js").backend;
+      (driver as { open?: () => void }).open?.();
       isSupported = true;
     } catch (error) {
       if (process.env.DEBUG === "true") {
@@ -104,6 +105,7 @@ if (globals.process?.platform === "win32") {
   } else if (typeof globals.Bun !== "undefined") {
     try {
       driver = require("./ffi_bun.js").backend;
+      (driver as { open?: () => void }).open?.();
       isSupported = true;
     } catch (error) {
       if (process.env.DEBUG === "true") {
@@ -114,6 +116,7 @@ if (globals.process?.platform === "win32") {
     try {
       if (process.getBuiltinModule("node:ffi")) {
         driver = require("./ffi_node.js").backend;
+        (driver as { open?: () => void }).open?.();
         isSupported = true;
       } else {
         driver = require("./ffi_koffi.js").backend;
