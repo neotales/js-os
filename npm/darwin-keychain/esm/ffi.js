@@ -49,21 +49,88 @@ if (DARWIN) {
 function unavailable() {
     throw new Error(unavailableReason);
 }
-/** Reports whether the native Keychain backend loaded successfully. */
+/**
+ * Reports whether the native Keychain backend loaded successfully.
+ *
+ * @returns `true` when Security.framework operations are available.
+ * @example
+ * ```ts
+ * import { isAvailable } from "@neotales/darwin-keychain/ffi";
+ *
+ * if (isAvailable()) console.log("Keychain is available");
+ * ```
+ */
 export function isAvailable() {
     return available;
 }
-/** Byte-oriented native generic-password operations. */
+/**
+ * Byte-oriented native generic-password operations.
+ *
+ * @example
+ * ```ts
+ * import { DarwinKeychain } from "@neotales/darwin-keychain/ffi";
+ *
+ * const secret = DarwinKeychain.getSecretBytes("service", "account");
+ * ```
+ */
 export const DarwinKeychain = {
+    /**
+     * Reads secret bytes from a generic-password item.
+     * @param service Keychain service name.
+     * @param account Keychain account name.
+     * @returns Secret bytes, or `null` when absent.
+     * @example
+     * ```ts
+     * import { DarwinKeychain } from "@neotales/darwin-keychain/ffi";
+     *
+     * const secret = DarwinKeychain.getSecretBytes("service", "account");
+     * ```
+     */
     getSecretBytes(service, account) {
         return backend.getSecretBytes(service, account);
     },
+    /**
+     * Creates or replaces a generic-password item.
+     * @param service Keychain service name.
+     * @param account Keychain account name.
+     * @param secret Secret bytes to store.
+     * @returns Nothing.
+     * @example
+     * ```ts
+     * import { DarwinKeychain } from "@neotales/darwin-keychain/ffi";
+     *
+     * DarwinKeychain.saveSecretBytes("service", "account", new Uint8Array([1]));
+     * ```
+     */
     saveSecretBytes(service, account, secret) {
         backend.saveSecretBytes(service, account, secret);
     },
+    /**
+     * Deletes a generic-password item.
+     * @param service Keychain service name.
+     * @param account Keychain account name.
+     * @returns `true` when an item was deleted.
+     * @example
+     * ```ts
+     * import { DarwinKeychain } from "@neotales/darwin-keychain/ffi";
+     *
+     * DarwinKeychain.removeSecret("service", "account");
+     * ```
+     */
     removeSecret(service, account) {
         return backend.removeSecret(service, account);
     },
+    /**
+     * Lists generic-password items for a service.
+     * @param service Keychain service name.
+     * @returns Matching records with copied secret bytes.
+     * @example
+     * ```ts
+     * import { DarwinKeychain } from "@neotales/darwin-keychain/ffi";
+     *
+     * const records = DarwinKeychain.listSecrets("service");
+     * ```
+     */
     listSecrets(service) {
         if (backend.listSecrets === undefined)
             throw new Error("Keychain enumeration is unavailable in this runtime.");
@@ -89,30 +156,97 @@ function searchPointer(handle) {
 /**
  * Security.framework-style operations using opaque handles.
  *
- * The selected runtime backend owns the native pointers and releases temporary
- * FFI allocations before returning. Handles retain the portable item or search
- * state needed to compose subsequent Keychain operations.
+ * @example
+ * ```ts
+ * import { Security } from "@neotales/darwin-keychain/ffi";
+ *
+ * const result = Security.SecKeychainFindGenericPassword("service", "account");
+ * ```
  */
 export const Security = {
+    /**
+     * Finds a native generic-password item.
+     *
+     * @param service Service name.
+     * @param account Account name.
+     * @returns An owned item and copied secret, or `null`.
+     * @example
+     * ```ts
+     * import { Security } from "@neotales/darwin-keychain/ffi";
+     *
+     * const result = Security.SecKeychainFindGenericPassword("service", "account");
+     * ```
+     */
     SecKeychainFindGenericPassword(service, account) {
         const secret = backend.getSecretBytes(service, account);
         return secret === null
             ? null
             : { item: new KeychainHandleValue(runtime, { service, account }), secret };
     },
+    /**
+     * Adds a native generic-password item.
+     *
+     * @param service Service name.
+     * @param account Account name.
+     * @param secret Secret bytes.
+     * @returns An owned item handle.
+     * @example
+     * ```ts
+     * import { Security } from "@neotales/darwin-keychain/ffi";
+     *
+     * const item = Security.SecKeychainAddGenericPassword("service", "account", new Uint8Array());
+     * ```
+     */
     SecKeychainAddGenericPassword(service, account, secret) {
         backend.saveSecretBytes(service, account, secret);
         return new KeychainHandleValue(runtime, { service, account });
     },
+    /**
+     * Replaces item data.
+     *
+     * @param item Owned item handle.
+     * @param secret Replacement bytes.
+     * @returns Nothing.
+     * @example
+     * ```ts
+     * import { Security } from "@neotales/darwin-keychain/ffi";
+     *
+     * Security.SecKeychainItemModifyAttributesAndData(item, new Uint8Array());
+     * ```
+     */
     SecKeychainItemModifyAttributesAndData(item, secret) {
         const pointer = itemPointer(item);
         backend.saveSecretBytes(pointer.service, pointer.account, secret);
     },
+    /**
+     * Deletes an item.
+     *
+     * @param item Owned item handle.
+     * @returns Nothing.
+     * @example
+     * ```ts
+     * import { Security } from "@neotales/darwin-keychain/ffi";
+     *
+     * Security.SecKeychainItemDelete(item);
+     * ```
+     */
     SecKeychainItemDelete(item) {
         const pointer = itemPointer(item);
         if (!backend.removeSecret(pointer.service, pointer.account))
             throw new Error("SecKeychainItemDelete could not find the item.");
     },
+    /**
+     * Creates a generic-password search.
+     *
+     * @param service Service name.
+     * @returns An owned search handle.
+     * @example
+     * ```ts
+     * import { Security } from "@neotales/darwin-keychain/ffi";
+     *
+     * const search = Security.SecKeychainSearchCreateFromAttributes("service");
+     * ```
+     */
     SecKeychainSearchCreateFromAttributes(service) {
         if (backend.listSecrets === undefined)
             throw new Error("Keychain enumeration is unavailable in this runtime.");
@@ -122,6 +256,18 @@ export const Security = {
             index: 0,
         });
     },
+    /**
+     * Advances a search.
+     *
+     * @param search Owned search handle.
+     * @returns The next owned item, or `null`.
+     * @example
+     * ```ts
+     * import { Security } from "@neotales/darwin-keychain/ffi";
+     *
+     * const item = Security.SecKeychainSearchCopyNext(search);
+     * ```
+     */
     SecKeychainSearchCopyNext(search) {
         const pointer = searchPointer(search);
         const record = pointer.records[pointer.index++];
@@ -129,6 +275,19 @@ export const Security = {
             ? null
             : new KeychainHandleValue(runtime, { service: record.service, account: record.account });
     },
+    /**
+     * Copies an item's account and secret.
+     *
+     * @param item Owned item handle.
+     * @param service Service name.
+     * @returns A copied record, or `null`.
+     * @example
+     * ```ts
+     * import { Security } from "@neotales/darwin-keychain/ffi";
+     *
+     * const record = Security.SecKeychainItemCopyAttributesAndData(item, "service");
+     * ```
+     */
     SecKeychainItemCopyAttributesAndData(item, service) {
         const pointer = itemPointer(item);
         if (pointer.service !== service)
@@ -136,6 +295,18 @@ export const Security = {
         const secret = backend.getSecretBytes(service, pointer.account);
         return secret === null ? null : { service, account: pointer.account, secret };
     },
+    /**
+     * Releases an owned Security.framework reference.
+     *
+     * @param handle Owned item or search handle.
+     * @returns Nothing.
+     * @example
+     * ```ts
+     * import { Security } from "@neotales/darwin-keychain/ffi";
+     *
+     * Security.CFRelease(handle);
+     * ```
+     */
     CFRelease(handle) {
         if (handle.runtime !== runtime)
             throw new TypeError("Keychain handle belongs to a different runtime.");

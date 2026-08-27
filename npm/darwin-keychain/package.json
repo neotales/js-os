@@ -1,11 +1,12 @@
 {
   "name": "@neotales/darwin-keychain",
-  "version": "0.0.0-alpha.0",
-  "description": "macOS keychain access via Security.framework FFI with get/set/delete/list helpers.",
+  "version": "0.0.0-alpha.1",
+  "description": "macOS keychain API for Node, Bun, and Deno.",
   "keywords": [
     "darwin",
     "keychain",
     "macos",
+    "osx",
     "security-framework"
   ],
   "homepage": "https://github.com/neotales/js-os",

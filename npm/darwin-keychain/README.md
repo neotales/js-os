@@ -91,7 +91,10 @@ try {
 
 This package is macOS-specific. On non-macOS systems `isAvailable()` returns `false`; root reads, removals, and lists return safe defaults, while native `/ffi` calls throw when invoked.
 
-Node uses native FFI on Node 26 or later with `--experimental-ffi`, or falls back to the optional koffi dependency. Bun and Deno use native FFI. Bun supports read, write, and delete, but native Keychain enumeration remains unavailable because its prior FFI implementation panicked.
+- Deno requires `--allow-ffi`, for example: `deno run --allow-ffi app.ts`.
+- Node.js 26+ uses native FFI with `--experimental-ffi`, for example: `node --experimental-ffi app.ts`.
+- Node.js without native FFI can use the koffi fallback: `npm install koffi`. Koffi does not require a runtime flag.
+- Bun uses its built-in FFI and needs no additional flag.
 
 ## License
 

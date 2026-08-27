@@ -8,9 +8,11 @@
  * Secret record returned by keychain listing operations.
  *
  * @example
+ * ```ts
  * import type { SecretRecord } from "@neotales/darwin-keychain";
  *
  * const record: SecretRecord = { service: "service", account: "account", secret: new Uint8Array() };
+ * ```
  */
 export interface SecretRecord {
   /** Keychain service name. */
@@ -21,7 +23,16 @@ export interface SecretRecord {
   secret: Uint8Array;
 }
 
-/** Runtime that owns a native Keychain pointer. */
+/**
+ * Runtime that owns a native Keychain reference.
+ *
+ * @example
+ * ```ts
+ * import type { KeychainRuntime } from "@neotales/darwin-keychain/ffi";
+ *
+ * const runtime: KeychainRuntime = "bun";
+ * ```
+ */
 export type KeychainRuntime = "deno" | "node" | "bun" | "koffi";
 
 /**
@@ -30,20 +41,62 @@ export type KeychainRuntime = "deno" | "node" | "bun" | "koffi";
  * The pointer remains private so it cannot accidentally be passed to a
  * different runtime's FFI implementation. {@link valueOf} returns it only for
  * native FFI operations in the owning runtime.
+ *
+ * @example
+ * ```ts
+ * import { KeychainHandle } from "@neotales/darwin-keychain/ffi";
+ *
+ * const handle = new KeychainHandle("bun", 0);
+ * ```
  */
 export class KeychainHandle {
   #pointer: unknown;
 
-  constructor(readonly runtime: KeychainRuntime, pointer: unknown) {
+  /**
+   * Creates a handle for a runtime-owned native reference.
+   *
+   * @param runtime Runtime that created the reference.
+   * @param pointer Private native reference.
+   * @example
+   * ```ts
+   * import { KeychainHandle } from "@neotales/darwin-keychain/ffi";
+   *
+   * const handle = new KeychainHandle("bun", 0);
+   * ```
+   */
+  constructor(
+    readonly runtime: KeychainRuntime,
+    pointer: unknown,
+  ) {
     this.#pointer = pointer;
   }
 
+  /**
+   * Returns the private runtime-owned reference for FFI use.
+   *
+   * @returns The underlying reference.
+   * @example
+   * ```ts
+   * import { KeychainHandle } from "@neotales/darwin-keychain/ffi";
+   *
+   * const pointer = new KeychainHandle("bun", 0).valueOf();
+   * ```
+   */
   valueOf(): unknown {
     return this.#pointer;
   }
 }
 
-/** Generic-password lookup result with an owned item reference. */
+/**
+ * Generic-password lookup result with an owned item reference.
+ *
+ * @example
+ * ```ts
+ * import type { GenericPassword } from "@neotales/darwin-keychain/ffi";
+ *
+ * const password: GenericPassword | null = null;
+ * ```
+ */
 export interface GenericPassword {
   /** Item reference; release it with `Security.CFRelease`. */
   item: KeychainHandle;
@@ -51,22 +104,85 @@ export interface GenericPassword {
   secret: Uint8Array;
 }
 
-/** Internal backend contract implemented by runtime-specific keychain backends. */
+/**
+ * Runtime-specific generic-password backend contract.
+ *
+ * @example
+ * ```ts
+ * import type { DarwinKeychainBackend } from "@neotales/darwin-keychain/ffi";
+ *
+ * const backend: DarwinKeychainBackend | undefined = undefined;
+ * ```
+ */
 export interface DarwinKeychainBackend {
-  /** Reads a generic-password secret as bytes. */
+  /**
+   * Reads a generic-password secret as bytes.
+   *
+   * @param service Keychain service name.
+   * @param account Keychain account name.
+   * @returns Secret bytes, or `null` when absent.
+   * @example
+   * ```ts
+   * import { DarwinKeychain } from "@neotales/darwin-keychain/ffi";
+   *
+   * const secret = DarwinKeychain.getSecretBytes("service", "account");
+   * ```
+   */
   getSecretBytes(service: string, account: string): Uint8Array | null;
-  /** Saves a generic-password secret as bytes. */
+  /**
+   * Creates or updates a generic-password secret.
+   *
+   * @param service Keychain service name.
+   * @param account Keychain account name.
+   * @param secret Secret bytes to store.
+   * @returns Nothing.
+   * @example
+   * ```ts
+   * import { DarwinKeychain } from "@neotales/darwin-keychain/ffi";
+   *
+   * DarwinKeychain.saveSecretBytes("service", "account", new Uint8Array([1]));
+   * ```
+   */
   saveSecretBytes(service: string, account: string, secret: Uint8Array): void;
-  /** Removes a generic-password secret. */
+  /**
+   * Removes a generic-password secret.
+   *
+   * @param service Keychain service name.
+   * @param account Keychain account name.
+   * @returns `true` when an item was removed.
+   * @example
+   * ```ts
+   * import { DarwinKeychain } from "@neotales/darwin-keychain/ffi";
+   *
+   * DarwinKeychain.removeSecret("service", "account");
+   * ```
+   */
   removeSecret(service: string, account: string): boolean;
-  /** Lists generic-password secrets for a service when supported. */
+  /**
+   * Lists generic-password secrets for a service.
+   *
+   * @param service Keychain service name.
+   * @returns Matching secret records.
+   * @example
+   * ```ts
+   * import { DarwinKeychain } from "@neotales/darwin-keychain/ffi";
+   *
+   * const records = DarwinKeychain.listSecrets("service");
+   * ```
+   */
   listSecrets?: (service: string) => SecretRecord[];
 }
 
-const runtime = globalThis as {
-  Deno?: { build: { os: string } };
-  process?: { platform?: string };
-};
-
-/** Whether the current runtime is macOS. */
-export const DARWIN = runtime.Deno?.build.os === "darwin" || runtime.process?.platform === "darwin";
+/**
+ * Whether the current runtime is macOS.
+ *
+ * @returns `true` when the runtime is executing on macOS.
+ * @example
+ * ```ts
+ * import { DARWIN } from "@neotales/darwin-keychain/ffi";
+ *
+ * if (DARWIN) console.log("macOS runtime");
+ * ```
+ */
+export const DARWIN = typeof globalThis.process !== "undefined" &&
+  process.platform === "darwin";

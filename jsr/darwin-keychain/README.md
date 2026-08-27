@@ -89,7 +89,11 @@ try {
 
 ## Runtime Notes
 
-This JSR package supports Deno, Node.js 26+ with `--experimental-ffi`, and Bun on macOS. On non-macOS systems `isAvailable()` returns `false`; root reads, removals, and lists return safe defaults, while native `/ffi` calls throw when invoked.
+This JSR package supports Deno, Node.js 26+, and Bun on macOS. On non-macOS systems `isAvailable()` returns `false`; root reads, removals, and lists return safe defaults, while native `/ffi` calls throw when invoked.
+
+- Deno requires `--allow-ffi`, for example: `deno run --allow-ffi app.ts`.
+- Node.js requires `--experimental-ffi`, for example: `node --experimental-ffi app.ts`.
+- Bun uses its built-in FFI and needs no additional flag.
 
 ## License
 

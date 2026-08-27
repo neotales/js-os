@@ -1,6 +1,6 @@
 {
   "name": "@neotales/darwin-keychain",
-  "version": "0.0.0-alpha.0",
+  "version": "0.0.0-alpha.1",
   "description": "macOS keychain access via Security.framework FFI with get/set/delete/list helpers.",
   "license": "MIT",
   "exports": {
