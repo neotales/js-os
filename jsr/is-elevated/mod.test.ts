@@ -1,41 +1,30 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { isElevated, isElevatedAvailable } from "./mod.ts";
 
-Deno.test(
+test(
   "isElevated matches effective uid semantics on Unix-like systems",
-  { ignore: Deno.build.os === "windows" },
+  { skip: Deno.build.os === "windows" },
   () => {
     const deno = Deno as typeof Deno & { euid?: () => number };
-    if (isElevated(false) !== ((deno.euid?.() ?? Deno.uid()) === 0)) {
-      throw new Error("Unexpected elevation result");
-    }
+    assert.equal(isElevated(false), (deno.euid?.() ?? Deno.uid()) === 0);
   },
 );
 
-Deno.test("isElevated returns a boolean", () => {
+test("isElevated returns a boolean", () => {
   if (Deno.build.os === "windows" && !isElevatedAvailable())
     return;
-  if (typeof isElevated() !== "boolean") {
-    throw new Error("Expected a boolean");
-  }
+  assert.equal(typeof isElevated(), "boolean");
 });
 
-Deno.test("isElevatedAvailable returns a boolean", () => {
-  if (typeof isElevatedAvailable() !== "boolean") {
-    throw new Error("Expected a boolean");
-  }
+test("isElevatedAvailable returns a boolean", () => {
+  assert.equal(typeof isElevatedAvailable(), "boolean");
 });
 
-Deno.test(
+test(
   "isElevated explains unavailable Windows FFI",
-  { ignore: Deno.build.os !== "windows" || isElevatedAvailable() },
+  { skip: Deno.build.os !== "windows" || isElevatedAvailable() },
   () => {
-    try {
-      isElevated();
-      throw new Error("Expected isElevated to throw");
-    } catch (error) {
-      if (!(error instanceof Error) || !error.message.includes("#runtime-support")) {
-        throw error;
-      }
-    }
+    assert.throws(() => isElevated(), /#runtime-support/);
   },
 );

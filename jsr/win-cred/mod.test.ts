@@ -1,3 +1,5 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   getSecret,
   getSecretString,
@@ -8,26 +10,17 @@ import {
 } from "./mod.ts";
 import { isWinCredAvailable, WinCred } from "./ffi.ts";
 
-Deno.test("Credential Manager availability reports a boolean", () => {
-  if (typeof isAvailable() !== "boolean")
-    throw new Error("Unexpected availability");
+test("Credential Manager availability reports a boolean", () => {
+  assert.equal(typeof isAvailable(), "boolean");
 });
 
-Deno.test("native FFI entry point reports availability and defers unsupported errors", () => {
-  if (typeof isWinCredAvailable() !== "boolean")
-    throw new Error("Unexpected native availability");
-  if (!isWinCredAvailable()) {
-    try {
-      WinCred.enumerate(null, 0);
-      throw new Error("Expected unavailable native backend to throw");
-    } catch (error) {
-      if (!(error instanceof Error))
-        throw error;
-    }
-  }
+test("native FFI entry point reports availability and defers unsupported errors", () => {
+  assert.equal(typeof isWinCredAvailable(), "boolean");
+  if (!isWinCredAvailable())
+    assert.throws(() => WinCred.enumerate(null, 0));
 });
 
-Deno.test("Deno without --allow-ffi reports Credential Manager as unavailable", async () => {
+test("Deno without --allow-ffi reports Credential Manager as unavailable", async () => {
   if (Deno.build.os !== "windows")
     return;
 
@@ -41,17 +34,18 @@ Deno.test("Deno without --allow-ffi reports Credential Manager as unavailable", 
     const output = await new Deno.Command(Deno.execPath(), {
       args: ["run", "--allow-read", program],
     }).output();
-    if (!output.success)
-      throw new Error(
-        "Credential Manager unexpectedly required FFI permission during module loading.",
-      );
+    assert.equal(
+      output.success,
+      true,
+      "Credential Manager unexpectedly required FFI permission during module loading.",
+    );
   } finally {
     await Deno.remove(program);
   }
 });
 
-Deno.test("secret store operations roundtrip strings and bytes", {
-  ignore: Deno.build.os !== "windows" ||
+test("secret store operations roundtrip strings and bytes", {
+  skip: Deno.build.os !== "windows" ||
     !isAvailable() ||
     Deno.env.get("TEST_DANGEROUS_OS_MUTATIONS") !== "true" ||
     Deno.env.get("SSH_CONNECTION") !== undefined,
@@ -64,13 +58,10 @@ Deno.test("secret store operations roundtrip strings and bytes", {
   try {
     saveSecret(service, stringAccount, "secret");
     saveSecret(service, byteAccount, bytes);
-    if (getSecretString(service, stringAccount) !== "secret")
-      throw new Error("String secret did not roundtrip.");
+    assert.equal(getSecretString(service, stringAccount), "secret");
     const saved = getSecret(service, byteAccount);
-    if (!saved || saved.join(",") !== bytes.join(","))
-      throw new Error("Byte secret did not roundtrip.");
-    if (listSecrets(service).length !== 2)
-      throw new Error("Service secrets were not listed.");
+    assert.deepEqual(saved, bytes);
+    assert.equal(listSecrets(service).length, 2);
   } finally {
     removeSecret(service, stringAccount);
     removeSecret(service, byteAccount);

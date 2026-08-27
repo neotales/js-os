@@ -1,5 +1,7 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { isDarwinKeychainAvailable } from "./mod.ts";
 
-Deno.test("keychain availability reports a boolean", () => {
-  if (typeof isDarwinKeychainAvailable() !== "boolean") throw new Error("Unexpected availability");
+test("keychain availability reports a boolean", () => {
+  assert.equal(typeof isDarwinKeychainAvailable(), "boolean");
 });

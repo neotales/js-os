@@ -1,39 +1,29 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { isRegistryAvailable, Registry, RegistryError } from "./mod.ts";
 import { stringToWide, wideToString } from "./types.ts";
 
-Deno.test("registry availability matches the platform", () => {
-  if (isRegistryAvailable() !== (Deno.build.os === "windows")) {
-    throw new Error("Unexpected registry availability");
-  }
+test("registry availability matches the platform", () => {
+  assert.equal(isRegistryAvailable(), Deno.build.os === "windows");
 });
 
-Deno.test("registry string conversion roundtrips", () => {
-  if (wideToString(stringToWide("registry")) !== "registry") {
-    throw new Error("Unexpected string conversion");
-  }
+test("registry string conversion roundtrips", () => {
+  assert.equal(wideToString(stringToWide("registry")), "registry");
 });
 
-Deno.test(
+test(
   "registry is unavailable outside Windows",
-  { ignore: Deno.build.os === "windows" },
+  { skip: Deno.build.os === "windows" },
   () => {
-    try {
-      Registry.openKey("HKCU\\Software");
-    } catch (error) {
-      if (error instanceof RegistryError) return;
-      throw error;
-    }
-    throw new Error("Expected RegistryError");
+    assert.throws(() => Registry.openKey("HKCU\\Software"), RegistryError);
   },
 );
 
-Deno.test("registry reads Windows version values", {
-  ignore: Deno.build.os !== "windows",
+test("registry reads Windows version values", {
+  skip: Deno.build.os !== "windows",
 }, () => {
   using key = Registry.openKey(
     "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
   );
-  if (!key.getString("ProductName")) {
-    throw new Error("Expected Windows product name");
-  }
+  assert.ok(key.getString("ProductName"));
 });

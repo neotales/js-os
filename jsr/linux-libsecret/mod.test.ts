@@ -1,7 +1,7 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
 import { isLinuxLibsecretAvailable } from "./mod.ts";
 
-Deno.test("libsecret availability reports a boolean", () => {
-  if (typeof isLinuxLibsecretAvailable() !== "boolean") {
-    throw new Error("Unexpected availability");
-  }
+test("libsecret availability reports a boolean", () => {
+  assert.equal(typeof isLinuxLibsecretAvailable(), "boolean");
 });
