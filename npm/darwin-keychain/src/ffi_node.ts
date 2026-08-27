@@ -215,7 +215,7 @@ export const backend: DarwinKeychainBackend = {
     }
   },
 
-  setSecretBytes(service: string, account: string, secret: Uint8Array): void {
+  saveSecretBytes(service: string, account: string, secret: Uint8Array): void {
     const found = findRecord(service, account);
     try {
       if (found && found.itemPtr) {
@@ -256,7 +256,7 @@ export const backend: DarwinKeychainBackend = {
     }
   },
 
-  deleteSecret(service: string, account: string): boolean {
+  removeSecret(service: string, account: string): boolean {
     const found = findRecord(service, account);
     if (!found)
       return false;
@@ -268,7 +268,7 @@ export const backend: DarwinKeychainBackend = {
     }
   },
 
-  list(service: string): SecretRecord[] {
+  listSecrets(service: string): SecretRecord[] {
     const { list, refs: _refs } = makeServiceAttrList(service);
     const searchOut = new Uint8Array(8);
     const status = sec.functions.SecKeychainSearchCreateFromAttributes(

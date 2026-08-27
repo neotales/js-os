@@ -3,13 +3,14 @@
  *
  * @example Usage
  * ```ts
- * import { isDarwinKeychainAvailable, readSecret, saveSecret } from "@neotales/darwin-keychain";
+ * import { getSecretString, isAvailable, saveSecret } from "@neotales/darwin-keychain";
  *
- * if (isDarwinKeychainAvailable()) {
+ * if (isAvailable()) {
  *   saveSecret("my-service", "my-account", "my-secret");
+ *   console.log(getSecretString("my-service", "my-account"));
  * }
  * ```
  *
  * @module
  */
-export { getSecretBytes, isDarwinKeychainAvailable, listSecrets, readSecret, removeSecret, saveSecret, } from "./vault.js";
+export { getSecret, getSecretString, isAvailable, listSecrets, removeSecret, saveSecret, } from "./vault.js";

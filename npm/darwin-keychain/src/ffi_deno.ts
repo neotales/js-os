@@ -134,7 +134,7 @@ export const backend: DarwinKeychainBackend = {
     }
   },
 
-  setSecretBytes(service: string, account: string, secret: Uint8Array): void {
+  saveSecretBytes(service: string, account: string, secret: Uint8Array): void {
     const serviceB = cbytes(service);
     const accountB = cbytes(account);
     const pwLen = new Uint8Array(4);
@@ -195,7 +195,7 @@ export const backend: DarwinKeychainBackend = {
     }
   },
 
-  deleteSecret(service: string, account: string): boolean {
+  removeSecret(service: string, account: string): boolean {
     const serviceB = cbytes(service);
     const accountB = cbytes(account);
     const pwLen = new Uint8Array(4);
@@ -234,7 +234,7 @@ export const backend: DarwinKeychainBackend = {
     }
   },
 
-  list(service: string): SecretRecord[] {
+  listSecrets(service: string): SecretRecord[] {
     const svcAttr = toAttr(service);
     const list = new Uint8Array(16);
     new DataView(list.buffer).setUint32(0, 1, true);

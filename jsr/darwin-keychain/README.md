@@ -27,71 +27,69 @@ npm install @neotales/darwin-keychain
 ## Usage
 
 ```typescript
-import { isDarwinKeychainAvailable, saveSecret } from "@neotales/darwin-keychain";
+import {
+  getSecret,
+  getSecretString,
+  isAvailable,
+  listSecrets,
+  removeSecret,
+  saveSecret,
+} from "@neotales/darwin-keychain";
 
-if (isDarwinKeychainAvailable()) {
-  saveSecret("my-service", "my-account", "my-secret");
+if (!isAvailable())
+  throw new Error("Keychain FFI is unavailable");
+
+saveSecret("my-service", "token", "my-secret");
+saveSecret("my-service", "bytes", new Uint8Array([0, 255, 1]));
+
+console.log(getSecretString("my-service", "token"));
+console.log(getSecret("my-service", "bytes"));
+console.log(listSecrets("my-service").map(({ account }) => account));
+
+removeSecret("my-service", "token");
+removeSecret("my-service", "bytes");
+```
+
+Services and accounts must be non-empty. The root API stores generic-password entries in the default macOS keychain and returns opaque bytes from `getSecret()` and `listSecrets()`.
+
+## Native API
+
+```typescript
+import { isAvailable, Security } from "@neotales/darwin-keychain/ffi";
+
+if (!isAvailable())
+  throw new Error("Keychain FFI is unavailable");
+
+const item = Security.SecKeychainAddGenericPassword(
+  "my-service",
+  "native-token",
+  new TextEncoder().encode("secret"),
+);
+try {
+  Security.SecKeychainItemModifyAttributesAndData(item, new TextEncoder().encode("updated"));
+  const found = Security.SecKeychainFindGenericPassword("my-service", "native-token");
+  console.log(found?.secret);
+  if (found)
+    Security.CFRelease(found.item);
+  Security.SecKeychainItemDelete(item);
+} finally {
+  Security.CFRelease(item);
 }
 ```
 
-## Examples
-
-Write a secret:
-
-```typescript
-import { saveSecret } from "@neotales/darwin-keychain";
-
-saveSecret("my-service", "my-account", "my-secret");
-```
-
-Read a secret:
-
-```typescript
-import { readSecret } from "@neotales/darwin-keychain";
-
-console.log(readSecret("my-service", "my-account"));
-```
-
-Read raw bytes:
-
-```typescript
-import { getSecretBytes } from "@neotales/darwin-keychain";
-
-console.log(getSecretBytes("my-service", "my-account"));
-```
-
-Delete a secret:
-
-```typescript
-import { removeSecret } from "@neotales/darwin-keychain";
-
-removeSecret("my-service", "my-account");
-```
-
-List secrets for a service:
-
-```typescript
-import { listSecrets } from "@neotales/darwin-keychain";
-
-console.log(listSecrets("my-service"));
-```
-
-`listSecrets()` is currently not supported in Bun. Attempting to enumerate keychain entries through the Bun FFI path caused Bun to panic, so Bun support for listing is disabled until that upstream issue is fixed.
+`Security` also exposes `SecKeychainSearchCreateFromAttributes`, `SecKeychainSearchCopyNext`, and `SecKeychainItemCopyAttributesAndData` for native enumeration. Returned `KeychainHandle` instances are runtime-specific opaque references; release every item and search handle with `Security.CFRelease()`.
 
 ## Exports
 
-| Export                                                                                                   | Subpath                     | Description                                    |
-| -------------------------------------------------------------------------------------------------------- | --------------------------- | ---------------------------------------------- |
-| `readSecret`, `getSecretBytes`, `saveSecret`, `removeSecret`, `listSecrets`, `isDarwinKeychainAvailable` | `@neotales/darwin-keychain` | macOS keychain helpers and availability check. |
-| `SecretRecord`                                                                                           | `@neotales/darwin-keychain` | Keychain list record type.                     |
+| Export                                                                                     | Subpath                         | Description                                         |
+| ------------------------------------------------------------------------------------------ | ------------------------------- | --------------------------------------------------- |
+| `getSecret`, `getSecretString`, `saveSecret`, `removeSecret`, `listSecrets`, `isAvailable` | `@neotales/darwin-keychain`     | Uniform secret-store facade.                        |
+| `DarwinKeychain`, `Security`, `isAvailable`, `isListAvailable`, `KeychainHandle`           | `@neotales/darwin-keychain/ffi` | Native generic-password and Security.framework API. |
+| `SecretRecord`                                                                             | `@neotales/darwin-keychain`     | Keychain list record type.                          |
 
 ## Runtime Notes
 
-This package is macOS-specific. On non-macOS runtimes `isDarwinKeychainAvailable()` returns `false`.
-
-Node prefers `node:ffi` and falls back to the optional `koffi` peer dependency. Bun and Deno use their native FFI support.
-
-In Bun, `readSecret`, `getSecretBytes`, `saveSecret`, and `removeSecret` are supported, but `listSecrets` is intentionally unavailable until Bun fixes the panic triggered by keychain enumeration.
+This JSR package is for Deno on macOS and requires `--allow-ffi`. On non-macOS systems `isAvailable()` returns `false`; root reads, removals, and lists return safe defaults, while native `/ffi` calls throw when invoked.
 
 ## License
 

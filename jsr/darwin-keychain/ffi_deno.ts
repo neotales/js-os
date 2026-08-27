@@ -4,7 +4,12 @@
  * @module @neotales/darwin-keychain
  */
 
-import type { DarwinKeychainBackend, SecretRecord } from "./types.ts";
+import {
+  type DarwinKeychainBackend,
+  type GenericPassword,
+  KeychainHandle,
+  type SecretRecord,
+} from "./types.ts";
 
 // deno-lint-ignore no-explicit-any
 const deno = (globalThis as typeof globalThis & { Deno?: any }).Deno;
@@ -88,14 +93,66 @@ function ptrToBytes(ptr: bigint, len: number): Uint8Array {
   return out;
 }
 
-function toAttr(service: string): Uint8Array {
-  const svc = cbytes(service);
+function toAttr(service: string): { serviceBytes: Uint8Array; attribute: Uint8Array } {
+  const serviceBytes = cbytes(service);
   const attr = new Uint8Array(16);
   const dv = new DataView(attr.buffer);
   dv.setUint32(0, ATTR_SERVICE, true);
-  dv.setUint32(4, svc.length, true);
-  dv.setBigUint64(8, BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(svc))), true);
-  return attr;
+  dv.setUint32(4, serviceBytes.length, true);
+  dv.setBigUint64(8, BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(serviceBytes))), true);
+  return { serviceBytes, attribute: attr };
+}
+
+function pointerOf(handle: KeychainHandle): bigint {
+  if (handle.runtime !== "deno")
+    throw new TypeError("Keychain handle belongs to a different runtime.");
+  const pointer = handle.valueOf();
+  if (typeof pointer !== "bigint")
+    throw new TypeError("Invalid Deno Keychain handle.");
+  return pointer;
+}
+
+function accountForItem(item: bigint): string | null {
+  const tags = new Uint8Array(4);
+  new DataView(tags.buffer).setUint32(0, ATTR_ACCOUNT, true);
+  const formats = new Uint8Array(4);
+  const info = new Uint8Array(24);
+  const view = new DataView(info.buffer);
+  view.setUint32(0, 1, true);
+  view.setBigUint64(8, BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(tags))), true);
+  view.setBigUint64(16, BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(formats))), true);
+
+  const attributes = new Uint8Array(8);
+  const length = new Uint8Array(4);
+  const status = sec.symbols.SecKeychainItemCopyAttributesAndData(
+    deno.UnsafePointer.create(item),
+    deno.UnsafePointer.of(info),
+    null,
+    attributes,
+    length,
+    null,
+  );
+  if (status !== 0)
+    return null;
+
+  const attributesPointer = readPtr(attributes);
+  if (!attributesPointer)
+    return null;
+  try {
+    if (ffiReadU32(attributesPointer, 0) === 0)
+      return null;
+    const itemPointer = ffiReadU64(attributesPointer, 8);
+    if (ffiReadU32(itemPointer, 0) !== ATTR_ACCOUNT)
+      return null;
+    const accountLength = ffiReadU32(itemPointer, 4);
+    const accountPointer = ffiReadU64(itemPointer, 8);
+    return new TextDecoder().decode(ptrToBytes(accountPointer, accountLength));
+  } finally {
+    sec.symbols.SecKeychainItemFreeAttributesAndData(
+      deno.UnsafePointer.create(attributesPointer),
+      null,
+    );
+  }
 }
 
 export const backend: DarwinKeychainBackend = {
@@ -134,7 +191,7 @@ export const backend: DarwinKeychainBackend = {
     }
   },
 
-  setSecretBytes(service: string, account: string, secret: Uint8Array): void {
+  saveSecretBytes(service: string, account: string, secret: Uint8Array): void {
     const serviceB = cbytes(service);
     const accountB = cbytes(account);
     const pwLen = new Uint8Array(4);
@@ -195,7 +252,7 @@ export const backend: DarwinKeychainBackend = {
     }
   },
 
-  deleteSecret(service: string, account: string): boolean {
+  removeSecret(service: string, account: string): boolean {
     const serviceB = cbytes(service);
     const accountB = cbytes(account);
     const pwLen = new Uint8Array(4);
@@ -234,13 +291,13 @@ export const backend: DarwinKeychainBackend = {
     }
   },
 
-  list(service: string): SecretRecord[] {
-    const svcAttr = toAttr(service);
+  listSecrets(service: string): SecretRecord[] {
+    const { serviceBytes: _serviceBytes, attribute } = toAttr(service);
     const list = new Uint8Array(16);
     new DataView(list.buffer).setUint32(0, 1, true);
     new DataView(list.buffer).setBigUint64(
       8,
-      BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(svcAttr))),
+      BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(attribute))),
       true,
     );
 
@@ -337,6 +394,141 @@ export const backend: DarwinKeychainBackend = {
     }
 
     return results;
+  },
+};
+
+/**
+ * Direct Security.framework operations using opaque {@link KeychainHandle}
+ * references. Call {@link Security.CFRelease} exactly once for every item or
+ * search handle returned by this object.
+ */
+export const Security = {
+  SecKeychainFindGenericPassword(service: string, account: string): GenericPassword | null {
+    const serviceBytes = cbytes(service);
+    const accountBytes = cbytes(account);
+    const length = new Uint8Array(4);
+    const data = new Uint8Array(8);
+    const item = new Uint8Array(8);
+    const status = sec.symbols.SecKeychainFindGenericPassword(
+      null,
+      serviceBytes.length,
+      serviceBytes,
+      accountBytes.length,
+      accountBytes,
+      length,
+      data,
+      item,
+    );
+    if (status === ERR_ITEM_NOT_FOUND)
+      return null;
+    osCheck(status, "SecKeychainFindGenericPassword failed");
+
+    const dataPointer = readPtr(data);
+    const itemPointer = readPtr(item);
+    try {
+      if (!itemPointer)
+        throw new Error("SecKeychainFindGenericPassword returned no item reference.");
+      return {
+        item: new KeychainHandle("deno", itemPointer),
+        secret: ptrToBytes(dataPointer, new DataView(length.buffer).getUint32(0, true)),
+      };
+    } finally {
+      if (dataPointer)
+        sec.symbols.SecKeychainItemFreeContent(null, deno.UnsafePointer.create(dataPointer));
+    }
+  },
+
+  SecKeychainAddGenericPassword(
+    service: string,
+    account: string,
+    secret: Uint8Array,
+  ): KeychainHandle {
+    const serviceBytes = cbytes(service);
+    const accountBytes = cbytes(account);
+    const item = new Uint8Array(8);
+    osCheck(
+      sec.symbols.SecKeychainAddGenericPassword(
+        null,
+        serviceBytes.length,
+        serviceBytes,
+        accountBytes.length,
+        accountBytes,
+        secret.length,
+        secret,
+        item,
+      ),
+      "SecKeychainAddGenericPassword failed",
+    );
+    const pointer = readPtr(item);
+    if (!pointer)
+      throw new Error("SecKeychainAddGenericPassword returned no item reference.");
+    return new KeychainHandle("deno", pointer);
+  },
+
+  SecKeychainItemModifyAttributesAndData(item: KeychainHandle, secret: Uint8Array): void {
+    osCheck(
+      sec.symbols.SecKeychainItemModifyAttributesAndData(
+        deno.UnsafePointer.create(pointerOf(item)),
+        null,
+        secret.length,
+        secret,
+      ),
+      "SecKeychainItemModifyAttributesAndData failed",
+    );
+  },
+
+  SecKeychainItemDelete(item: KeychainHandle): void {
+    osCheck(
+      sec.symbols.SecKeychainItemDelete(deno.UnsafePointer.create(pointerOf(item))),
+      "SecKeychainItemDelete failed",
+    );
+  },
+
+  SecKeychainSearchCreateFromAttributes(service: string): KeychainHandle {
+    const { serviceBytes: _serviceBytes, attribute } = toAttr(service);
+    const list = new Uint8Array(16);
+    const view = new DataView(list.buffer);
+    view.setUint32(0, 1, true);
+    view.setBigUint64(8, BigInt(deno.UnsafePointer.value(deno.UnsafePointer.of(attribute))), true);
+    const search = new Uint8Array(8);
+    osCheck(
+      sec.symbols.SecKeychainSearchCreateFromAttributes(
+        null,
+        ITEM_CLASS_GENERIC_PASSWORD,
+        deno.UnsafePointer.of(list),
+        search,
+      ),
+      "SecKeychainSearchCreateFromAttributes failed",
+    );
+    const pointer = readPtr(search);
+    if (!pointer)
+      throw new Error("SecKeychainSearchCreateFromAttributes returned no search reference.");
+    return new KeychainHandle("deno", pointer);
+  },
+
+  SecKeychainSearchCopyNext(search: KeychainHandle): KeychainHandle | null {
+    const item = new Uint8Array(8);
+    const status = sec.symbols.SecKeychainSearchCopyNext(
+      deno.UnsafePointer.create(pointerOf(search)),
+      item,
+    );
+    if (status === ERR_ITEM_NOT_FOUND)
+      return null;
+    osCheck(status, "SecKeychainSearchCopyNext failed");
+    const pointer = readPtr(item);
+    return pointer ? new KeychainHandle("deno", pointer) : null;
+  },
+
+  SecKeychainItemCopyAttributesAndData(item: KeychainHandle, service: string): SecretRecord | null {
+    const account = accountForItem(pointerOf(item));
+    if (!account)
+      return null;
+    const secret = backend.getSecretBytes(service, account);
+    return secret === null ? null : { service, account, secret };
+  },
+
+  CFRelease(handle: KeychainHandle): void {
+    cf.symbols.CFRelease(deno.UnsafePointer.create(pointerOf(handle)));
   },
 };
 

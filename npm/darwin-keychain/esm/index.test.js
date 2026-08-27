@@ -1,7 +1,8 @@
-import { strictEqual } from "node:assert/strict";
+import { deepStrictEqual, strictEqual, throws } from "node:assert/strict";
 import process from "node:process";
 import { test } from "node:test";
-import { getSecretBytes, isDarwinKeychainAvailable, listSecrets, readSecret, removeSecret, saveSecret, } from "./index.js";
+import { getSecret, getSecretString, isAvailable, listSecrets, removeSecret, saveSecret, } from "./index.js";
+import { DarwinKeychain, isAvailable as isNativeAvailable, Security } from "./ffi.js";
 const DARWIN = process.platform === "darwin";
 const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||
     process.env.CI === "true";
@@ -17,13 +18,24 @@ function shouldSkipIntegration(error) {
         msg.includes("only supported on macos"));
 }
 test("darwin-keychain::availability reports a boolean", () => {
-    strictEqual(typeof isDarwinKeychainAvailable(), "boolean");
+    strictEqual(typeof isAvailable(), "boolean");
+});
+test("darwin-keychain::native FFI entry point defers unsupported errors", () => {
+    strictEqual(typeof isNativeAvailable(), "boolean");
+    if (!isNativeAvailable())
+        throws(() => DarwinKeychain.getSecretBytes("svc", "acct"));
+});
+test("darwin-keychain::Security API defers unsupported errors", () => {
+    if (!isNativeAvailable())
+        throws(() => Security.SecKeychainFindGenericPassword("svc", "acct"));
 });
 test("darwin-keychain::unsupported platform returns safe defaults", { skip: DARWIN }, () => {
-    strictEqual(isDarwinKeychainAvailable(), false);
-    strictEqual(readSecret("svc", "acct"), null);
-    strictEqual(getSecretBytes("svc", "acct"), null);
+    strictEqual(isAvailable(), false);
+    strictEqual(getSecret("svc", "acct"), null);
+    strictEqual(getSecretString("svc", "acct"), null);
+    deepStrictEqual(listSecrets("svc"), []);
     strictEqual(removeSecret("svc", "acct"), false);
+    saveSecret("svc", "acct", "secret");
 });
 test("darwin-keychain::set/get/list/delete roundtrip (dangerous)", { skip: !DARWIN || !DANGEROUS_MUTATIONS }, (t) => {
     if (!DARWIN || !DANGEROUS_MUTATIONS)
@@ -33,7 +45,7 @@ test("darwin-keychain::set/get/list/delete roundtrip (dangerous)", { skip: !DARW
     const secret = "top-secret";
     try {
         saveSecret(service, account, secret);
-        const saved = readSecret(service, account);
+        const saved = getSecretString(service, account);
         if (saved !== secret) {
             // Hosted macOS runners can expose a Keychain that accepts writes but cannot read them.
             try {
@@ -45,7 +57,7 @@ test("darwin-keychain::set/get/list/delete roundtrip (dangerous)", { skip: !DARW
             t.skip("Integration environment unavailable: Keychain did not retain the test item");
             return;
         }
-        strictEqual(getSecretBytes(service, account) instanceof Uint8Array, true);
+        strictEqual(getSecret(service, account) instanceof Uint8Array, true);
         const records = listSecrets(service);
         strictEqual(records.some((record) => record.service === service && record.account === account), true);
         strictEqual(removeSecret(service, account), true);

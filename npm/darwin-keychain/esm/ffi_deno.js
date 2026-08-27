@@ -105,7 +105,7 @@ export const backend = {
                 cf.symbols.CFRelease(deno.UnsafePointer.create(refPtr));
         }
     },
-    setSecretBytes(service, account, secret) {
+    saveSecretBytes(service, account, secret) {
         const serviceB = cbytes(service);
         const accountB = cbytes(account);
         const pwLen = new Uint8Array(4);
@@ -138,7 +138,7 @@ export const backend = {
                 cf.symbols.CFRelease(deno.UnsafePointer.create(refPtr));
         }
     },
-    deleteSecret(service, account) {
+    removeSecret(service, account) {
         const serviceB = cbytes(service);
         const accountB = cbytes(account);
         const pwLen = new Uint8Array(4);
@@ -164,7 +164,7 @@ export const backend = {
                 cf.symbols.CFRelease(deno.UnsafePointer.create(refPtr));
         }
     },
-    list(service) {
+    listSecrets(service) {
         const svcAttr = toAttr(service);
         const list = new Uint8Array(16);
         new DataView(list.buffer).setUint32(0, 1, true);

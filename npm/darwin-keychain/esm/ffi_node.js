@@ -161,7 +161,7 @@ export const backend = {
             releaseFindResult(found);
         }
     },
-    setSecretBytes(service, account, secret) {
+    saveSecretBytes(service, account, secret) {
         const found = findRecord(service, account);
         try {
             if (found && found.itemPtr) {
@@ -180,7 +180,7 @@ export const backend = {
             releaseFindResult(found);
         }
     },
-    deleteSecret(service, account) {
+    removeSecret(service, account) {
         const found = findRecord(service, account);
         if (!found)
             return false;
@@ -192,7 +192,7 @@ export const backend = {
             releaseFindResult(found);
         }
     },
-    list(service) {
+    listSecrets(service) {
         const { list, refs: _refs } = makeServiceAttrList(service);
         const searchOut = new Uint8Array(8);
         const status = sec.functions.SecKeychainSearchCreateFromAttributes(null, ITEM_CLASS_GENERIC_PASSWORD, list, searchOut);

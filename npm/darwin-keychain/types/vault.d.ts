@@ -3,41 +3,42 @@
  *
  * @module @neotales/darwin-keychain
  */
+import { type SecretRecord } from "./types.js";
 /**
  * Returns whether a macOS keychain backend is available in the current runtime.
  *
  * @returns `true` when generic password operations are supported.
  * @example
- * import { isDarwinKeychainAvailable } from "@neotales/darwin-keychain";
+ * import { isAvailable } from "@neotales/darwin-keychain";
  *
- * if (isDarwinKeychainAvailable())
+ * if (isAvailable())
  *   console.log("Keychain is available");
  */
-export declare function isDarwinKeychainAvailable(): boolean;
-/**
- * Reads and decodes a stored secret.
- *
- * @param service Keychain service name.
- * @param account Keychain account name.
- * @returns The stored secret string, or `null` when missing.
- * @example
- * import { readSecret } from "@neotales/darwin-keychain";
- *
- * const secret = readSecret("service", "account");
- */
-export declare function readSecret(service: string, account: string): string | null;
+export declare function isAvailable(): boolean;
 /**
  * Reads a stored secret as raw bytes.
  *
  * @param service Keychain service name.
  * @param account Keychain account name.
+ * @returns The stored secret string, or `null` when missing.
+ * @example
+ * import { getSecret } from "@neotales/darwin-keychain";
+ *
+ * const secret = getSecret("service", "account");
+ */
+export declare function getSecret(service: string, account: string): Uint8Array | null;
+/**
+ * Reads and decodes a stored secret.
+ *
+ * @param service Keychain service name.
+ * @param account Keychain account name.
  * @returns The stored secret bytes, or `null` when missing.
  * @example
- * import { getSecretBytes } from "@neotales/darwin-keychain";
+ * import { getSecretString } from "@neotales/darwin-keychain";
  *
- * const bytes = getSecretBytes("service", "account");
+ * const secret = getSecretString("service", "account");
  */
-export declare function getSecretBytes(service: string, account: string): Uint8Array | null;
+export declare function getSecretString(service: string, account: string): string | null;
 /**
  * Stores or updates a generic password record.
  *
@@ -76,8 +77,4 @@ export declare function removeSecret(service: string, account: string): boolean;
  *
  * const records = listSecrets("service");
  */
-export declare function listSecrets(service: string): Array<{
-    service: string;
-    account: string;
-    secret: string;
-}>;
+export declare function listSecrets(service: string): SecretRecord[];

@@ -86,7 +86,7 @@ export const backend = {
             releaseFindResult(found);
         }
     },
-    setSecretBytes(service, account, secret) {
+    saveSecretBytes(service, account, secret) {
         const found = findRecord(service, account);
         try {
             if (found && found.itemPtr) {
@@ -105,7 +105,7 @@ export const backend = {
             releaseFindResult(found);
         }
     },
-    deleteSecret(service, account) {
+    removeSecret(service, account) {
         const found = findRecord(service, account);
         if (!found)
             return false;

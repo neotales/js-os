@@ -27,6 +27,10 @@
     ".": {
       "types": "./types/index.d.ts",
       "import": "./esm/index.js"
+    },
+    "./ffi": {
+      "types": "./types/ffi.d.ts",
+      "import": "./esm/ffi.js"
     }
   },
   "publishConfig": {
