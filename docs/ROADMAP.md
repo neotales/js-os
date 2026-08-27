@@ -6,6 +6,16 @@ ship. Day-to-day execution details live in [PLAN.md](./PLAN.md).
 Unless noted otherwise, new packages follow the existing split layout (`jsr/` Deno-only
 and `npm/` cross-runtime via FFI).
 
+## `win-winget`
+
+Windows Package Manager integration through the local `Microsoft.Management.Deployment`
+COM/WinRT API.
+
+- Search the configured package sources and enumerate installed packages.
+- Install, uninstall, upgrade, and download packages.
+- Manage package sources and report API availability.
+- Use the `winget` CLI only as a fallback where the native API lacks coverage.
+
 ## Release Round 1 — `0.0.0-alpha.1`
 
 Goal: validate the publishing pipeline end-to-end before adding new modules.
