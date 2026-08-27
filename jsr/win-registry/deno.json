@@ -8,7 +8,7 @@
     "./registry": "./registry.ts",
     "./types": "./types.ts",
     "./ffi-deno": "./ffi_deno.ts",
-    "./ffi-bun": "./ffi_bun.ts",
+    "./ffi-bun": "./bun_ffi.ts",
     "./ffi-node": "./ffi_node.ts"
   }
 }

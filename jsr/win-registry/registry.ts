@@ -116,7 +116,7 @@ if (isWindowsPlatform) {
     driver = runtime === "deno"
       ? (await import("./ffi_deno.ts")).backend
       : runtime === "bun"
-      ? (await import("./ffi_bun.ts")).backend
+      ? (await import("./bun_ffi.ts")).backend
       : (await import("./ffi_node.ts")).backend;
     // Backends load their native library lazily, so a successful module
     // import does not prove FFI works. Probe-open now so
