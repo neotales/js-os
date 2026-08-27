@@ -26,6 +26,8 @@ A list of other modules can be found at
 
 ```sh
 deno add jsr:@neotales/win-registry
+npx jsr add @neotales/win-registry
+npm install @neotales/win-registry
 ```
 
 ```ts

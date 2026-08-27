@@ -3,6 +3,8 @@
 Operating-system-specific TypeScript modules published to JSR and npm. Each module is maintained
 as two packages: a Deno-only JSR package in `jsr/` and a cross-runtime npm package in `npm/`.
 
+[![GitHub version](https://badge.fury.io/gh/neotales%2Fjs-os.svg)](https://badge.fury.io/gh/neotales%2Fjs-os)
+
 ## Modules
 
 | Module            | Platforms | Description                                                                  |

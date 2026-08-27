@@ -8,7 +8,7 @@
 
 [![JSR](https://jsr.io/badges/@neotales/darwin-keychain)](https://jsr.io/@neotales/darwin-keychain)
 [![npm version](https://badge.fury.io/js/@neotales%2Fdarwin-keychain.svg)](https://badge.fury.io/js/@neotales%2Fdarwin-keychain)
-[![GitHub version](https://badge.fury.io/gh/neotales%2Fjs.svg)](https://badge.fury.io/gh/neotales%2Fjs)
+[![GitHub version](https://badge.fury.io/gh/neotales%2Fjs-os.svg)](https://badge.fury.io/gh/neotales%2Fjs-os)
 
 ## Documentation
 
@@ -18,14 +18,9 @@ A list of other modules can be found at [github.com/neotales/js](https://github.
 
 ## Installation
 
-```bash
-# Deno
+```sh
 deno add jsr:@neotales/darwin-keychain
-
-# npm from jsr
 npx jsr add @neotales/darwin-keychain
-
-# from npmjs.org
 npm install @neotales/darwin-keychain
 ```
 

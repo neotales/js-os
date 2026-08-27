@@ -9,7 +9,7 @@ On Unix-like systems this typically means root. On Windows it checks whether the
 
 [![JSR](https://jsr.io/badges/@neotales/is-elevated)](https://jsr.io/@neotales/is-elevated)
 [![npm version](https://badge.fury.io/js/@neotales%2Fis-elevated.svg)](https://badge.fury.io/js/@neotales%2Fis-elevated)
-[![GitHub version](https://badge.fury.io/gh/neotales%2Fjs.svg)](https://badge.fury.io/gh/neotales%2Fjs)
+[![GitHub version](https://badge.fury.io/gh/neotales%2Fjs-os.svg)](https://badge.fury.io/gh/neotales%2Fjs-os)
 
 ## Documentation
 
@@ -19,14 +19,9 @@ A list of other modules can be found at [github.com/neotales/js-os](https://gith
 
 ## Installation
 
-```bash
-# Deno
+```sh
 deno add jsr:@neotales/is-elevated
-
-# npm from jsr
 npx jsr add @neotales/is-elevated
-
-# from npmjs.org
 npm install @neotales/is-elevated
 ```
 

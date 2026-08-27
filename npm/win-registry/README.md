@@ -24,16 +24,14 @@ A list of other modules can be found at
 ## Installation
 
 ```sh
-pnpm add @neotales/win-registry
+deno add jsr:@neotales/win-registry
+npx jsr add @neotales/win-registry
+npm install @neotales/win-registry
 ```
 
 ```ts
 import { Registry } from "@neotales/win-registry";
 ```
-
-Deno projects that need the npm package can use
-`deno add npm:@neotales/win-registry` and import from
-`npm:@neotales/win-registry`.
 
 ## Usage
 

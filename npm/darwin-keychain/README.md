@@ -18,14 +18,9 @@ A list of other modules can be found at [github.com/neotales/js-os](https://gith
 
 ## Installation
 
-```bash
-# Deno
+```sh
 deno add jsr:@neotales/darwin-keychain
-
-# npm from jsr
 npx jsr add @neotales/darwin-keychain
-
-# from npmjs.org
 npm install @neotales/darwin-keychain
 ```
 
