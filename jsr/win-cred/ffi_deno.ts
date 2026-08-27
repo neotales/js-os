@@ -1,4 +1,4 @@
-import type { CredentialBackend, RawCredential } from "./types.ts";
+import type { RawCredential, WinCredentials } from "./types.ts";
 import { stringToWide } from "./types.ts";
 
 const deno = (globalThis as typeof globalThis & { Deno?: any }).Deno;
@@ -134,17 +134,20 @@ function buildCredentialBuffer(cred: RawCredential): { structBuf: Uint8Array; re
   return { structBuf: buf, refs };
 }
 
-export const backend: CredentialBackend = {
+export const backend: WinCredentials = {
   write(cred: RawCredential, flags: number): void {
-    const { structBuf } = buildCredentialBuffer(cred);
-    const ok = symbols.CredWriteW(structBuf, flags);
-    if (!ok) throw new Error(`CredWriteW failed with error code ${k32.GetLastError()}`);
+    const native = buildCredentialBuffer(cred);
+    const ok = symbols.CredWriteW(native.structBuf, flags);
+    void native.refs;
+    if (!ok)
+      throw new Error(`CredWriteW failed with error code ${k32.GetLastError()}`);
   },
   read(targetName: string, type: number): RawCredential | null {
     const wTarget = stringToWide(targetName);
     const outBuf = new Uint8Array(8);
     const ok = symbols.CredReadW(wTarget, type, 0, outBuf);
-    if (!ok) return null;
+    if (!ok)
+      return null;
     const credPtr = new DataView(outBuf.buffer).getBigUint64(0, true);
     try {
       return parseCredential(credPtr);
@@ -165,7 +168,8 @@ export const backend: CredentialBackend = {
       countBuf,
       credsBuf,
     );
-    if (!ok) return [];
+    if (!ok)
+      return [];
     const count = new DataView(countBuf.buffer).getUint32(0, true);
     const arrayPtr = new DataView(credsBuf.buffer).getBigUint64(0, true);
     const results: RawCredential[] = [];

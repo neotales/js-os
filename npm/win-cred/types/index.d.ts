@@ -1,15 +1,14 @@
 /**
- * Windows Credential Manager helpers using runtime-specific FFI backends.
+ * Windows Credential Manager secret storage.
  *
  * @example Usage
  * ```ts
- * import { readSecret, saveCredential } from "@neotales/win-cred";
+ * import { getSecretString, saveSecret } from "@neotales/win-cred";
  *
- * saveCredential({ targetName: "myapp/token", secret: "secret" });
- * console.log(readSecret("myapp/token"));
+ * saveSecret("myapp", "token", "secret");
+ * console.log(getSecretString("myapp", "token"));
  * ```
  *
  * @module
  */
-export { decodeSecret, encodeSecret, isAvailable, listCredentials, readCredential, readSecret, removeCredential, saveCredential, type WriteOptions, } from "./credential.js";
-export { type Credential, type CredentialBackend, CredEnumerateFlags, CredPersist, CredType, CredWriteFlags, type RawCredential, } from "./types.js";
+export { getSecret, getSecretString, isAvailable, listSecrets, removeSecret, saveSecret, type SecretRecord, } from "./vault.js";

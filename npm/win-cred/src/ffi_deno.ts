@@ -1,4 +1,4 @@
-import type { CredentialBackend, RawCredential } from "./types.js";
+import type { RawCredential, WinCredentials } from "./types.js";
 import { stringToWide } from "./types.js";
 
 const deno = (globalThis as typeof globalThis & { Deno?: any }).Deno;
@@ -134,7 +134,7 @@ function buildCredentialBuffer(cred: RawCredential): { structBuf: Uint8Array; re
   return { structBuf: buf, refs };
 }
 
-export const backend: CredentialBackend = {
+export const backend: WinCredentials = {
   write(cred: RawCredential, flags: number): void {
     const { structBuf } = buildCredentialBuffer(cred);
     const ok = symbols.CredWriteW(structBuf, flags);

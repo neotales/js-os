@@ -1,4 +1,4 @@
-import type { CredentialBackend, RawCredential } from "./types.js";
+import type { RawCredential, WinCredentials } from "./types.js";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -75,7 +75,7 @@ function toKoffiCredential(cred: RawCredential): Record<string, unknown> {
   };
 }
 
-export const backend: CredentialBackend = {
+export const backend: WinCredentials = {
   write(cred: RawCredential, flags: number): void {
     const ok = CredWriteW(toKoffiCredential(cred), flags);
     if (!ok) throw new Error(`CredWriteW failed with error code ${GetLastError()}`);

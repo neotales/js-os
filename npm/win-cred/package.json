@@ -29,13 +29,9 @@
       "types": "./types/index.d.ts",
       "import": "./esm/index.js"
     },
-    "./credential": {
-      "types": "./types/credential.d.ts",
-      "import": "./esm/credential.js"
-    },
-    "./types": {
-      "types": "./types/types.d.ts",
-      "import": "./esm/types.js"
+    "./ffi": {
+      "types": "./types/ffi.d.ts",
+      "import": "./esm/ffi.js"
     }
   },
   "publishConfig": {

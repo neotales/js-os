@@ -1,4 +1,4 @@
-import type { CredentialBackend, RawCredential } from "./types.js";
+import type { RawCredential, WinCredentials } from "./types.js";
 import { stringToWide } from "./types.js";
 import { createRequire } from "node:module";
 
@@ -85,7 +85,7 @@ function buildCredentialBuffer(cred: RawCredential): { structBuf: Uint8Array; re
   if (cred.userName) view.setBigUint64(OFF_USER_NAME, ffi.getRawPointer(wUser), true);
   return { structBuf: buf, refs };
 }
-export const backend: CredentialBackend = {
+export const backend: WinCredentials = {
   write(cred: RawCredential, flags: number): void {
     const { structBuf } = buildCredentialBuffer(cred);
     const ok = lib.functions.CredWriteW(structBuf, flags);
