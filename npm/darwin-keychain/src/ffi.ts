@@ -62,11 +62,6 @@ export function isAvailable(): boolean {
   return available;
 }
 
-/** Reports whether the active backend supports Keychain enumeration. */
-export function isListAvailable(): boolean {
-  return available && backend.listSecrets !== undefined;
-}
-
 /** Byte-oriented native generic-password operations. */
 export const DarwinKeychain = {
   getSecretBytes(service: string, account: string): Uint8Array | null {

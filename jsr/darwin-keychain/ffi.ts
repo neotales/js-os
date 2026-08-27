@@ -4,9 +4,10 @@ import type {
   DarwinKeychainBackend,
   GenericPassword,
   KeychainHandle,
+  KeychainRuntime,
   SecretRecord,
 } from "./types.ts";
-import { DARWIN } from "./types.ts";
+import { DARWIN, KeychainHandle as KeychainHandleValue } from "./types.ts";
 
 let unavailableReason = "macOS Keychain is only available through Deno FFI on macOS.";
 const unavailableBackend: DarwinKeychainBackend = {
@@ -25,6 +26,7 @@ const unavailableBackend: DarwinKeychainBackend = {
 };
 
 let backend = unavailableBackend;
+let runtime: KeychainRuntime = "node";
 interface DarwinKeychainApi {
   getSecretBytes(service: string, account: string): Uint8Array | null;
   saveSecretBytes(service: string, account: string, secret: Uint8Array): void;
@@ -71,13 +73,90 @@ const unavailableSecurity: SecurityApi = {
     unavailable();
   },
 };
+type ItemPointer = { service: string; account: string };
+type SearchPointer = { records: SecretRecord[]; index: number };
+
+function itemPointer(handle: KeychainHandle): ItemPointer {
+  if (handle.runtime !== runtime)
+    throw new TypeError("Keychain handle belongs to a different runtime.");
+  const pointer = handle.valueOf();
+  if (!pointer || typeof pointer !== "object" || !("service" in pointer) || !("account" in pointer))
+    throw new TypeError("Invalid Keychain item handle.");
+  return pointer as ItemPointer;
+}
+
+function searchPointer(handle: KeychainHandle): SearchPointer {
+  if (handle.runtime !== runtime)
+    throw new TypeError("Keychain handle belongs to a different runtime.");
+  const pointer = handle.valueOf();
+  if (!pointer || typeof pointer !== "object" || !("records" in pointer) || !("index" in pointer))
+    throw new TypeError("Invalid Keychain search handle.");
+  return pointer as SearchPointer;
+}
+
+const portableSecurity: SecurityApi = {
+  SecKeychainFindGenericPassword(service, account): GenericPassword | null {
+    const secret = backend.getSecretBytes(service, account);
+    return secret === null
+      ? null
+      : { item: new KeychainHandleValue(runtime, { service, account }), secret };
+  },
+  SecKeychainAddGenericPassword(service, account, secret): KeychainHandle {
+    backend.saveSecretBytes(service, account, secret);
+    return new KeychainHandleValue(runtime, { service, account });
+  },
+  SecKeychainItemModifyAttributesAndData(item, secret): void {
+    const pointer = itemPointer(item);
+    backend.saveSecretBytes(pointer.service, pointer.account, secret);
+  },
+  SecKeychainItemDelete(item): void {
+    const pointer = itemPointer(item);
+    if (!backend.removeSecret(pointer.service, pointer.account))
+      throw new Error("SecKeychainItemDelete could not find the item.");
+  },
+  SecKeychainSearchCreateFromAttributes(service): KeychainHandle {
+    if (backend.listSecrets === undefined)
+      throw new Error("Keychain enumeration is unavailable in this runtime.");
+    return new KeychainHandleValue(runtime, { records: backend.listSecrets(service), index: 0 });
+  },
+  SecKeychainSearchCopyNext(search): KeychainHandle | null {
+    const pointer = searchPointer(search);
+    const record = pointer.records[pointer.index++];
+    return record === undefined
+      ? null
+      : new KeychainHandleValue(runtime, { service: record.service, account: record.account });
+  },
+  SecKeychainItemCopyAttributesAndData(item, service): SecretRecord | null {
+    const pointer = itemPointer(item);
+    if (pointer.service !== service)
+      throw new RangeError("Item handle does not belong to the requested service.");
+    const secret = backend.getSecretBytes(service, pointer.account);
+    return secret === null ? null : { service, account: pointer.account, secret };
+  },
+  CFRelease(handle): void {
+    if (handle.runtime !== runtime)
+      throw new TypeError("Keychain handle belongs to a different runtime.");
+  },
+};
+
 let Security = unavailableSecurity;
 let available = false;
-if (DARWIN && "Deno" in globalThis) {
+if (DARWIN) {
   try {
-    const ffi = await import("./ffi_deno.ts");
-    backend = ffi.backend;
-    Security = ffi.Security;
+    if ("Deno" in globalThis) {
+      const ffi = await import("./ffi_deno.ts");
+      backend = ffi.backend;
+      Security = ffi.Security;
+      runtime = "deno";
+    } else if ("Bun" in globalThis) {
+      backend = (await import("./ffi_bun.ts")).backend;
+      Security = portableSecurity;
+      runtime = "bun";
+    } else {
+      backend = (await import("./ffi_node.ts")).backend;
+      Security = portableSecurity;
+      runtime = "node";
+    }
     available = true;
   } catch (error) {
     unavailableReason = error instanceof Error ? error.message : String(error);
@@ -89,13 +168,8 @@ function unavailable(): never {
 }
 
 /** Reports whether the native Keychain backend loaded successfully. */
-export function isAvailable(): boolean {
+export function isDarwinKeychainAvailable(): boolean {
   return available;
-}
-
-/** Reports whether the active backend supports Keychain enumeration. */
-export function isListAvailable(): boolean {
-  return available && backend.listSecrets !== undefined;
 }
 
 /** Byte-oriented native generic-password operations. */

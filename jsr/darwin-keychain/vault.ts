@@ -4,7 +4,7 @@
  * @module @neotales/darwin-keychain
  */
 
-import { DarwinKeychain, isAvailable as isNativeAvailable } from "./ffi.ts";
+import { DarwinKeychain, isDarwinKeychainAvailable } from "./ffi.ts";
 import { DARWIN, type SecretRecord } from "./types.ts";
 
 const decoder = new TextDecoder();
@@ -26,7 +26,7 @@ function validatePart(name: string, value: string): void {
  *   console.log("Keychain is available");
  */
 export function isAvailable(): boolean {
-  return isNativeAvailable();
+  return isDarwinKeychainAvailable();
 }
 
 /**
@@ -109,9 +109,6 @@ export function removeSecret(service: string, account: string): boolean {
 
 /**
  * Lists records for a service when the backend supports enumeration.
- *
- * Bun currently does not support keychain listing here because the FFI-based
- * implementation panics while enumerating Security.framework results.
  *
  * @param service Keychain service name.
  * @returns Decoded records for the given service.

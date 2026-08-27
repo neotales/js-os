@@ -67,9 +67,6 @@ export declare function removeSecret(service: string, account: string): boolean;
 /**
  * Lists records for a service when the backend supports enumeration.
  *
- * Bun currently does not support keychain listing here because the FFI-based
- * implementation panics while enumerating Security.framework results.
- *
  * @param service Keychain service name.
  * @returns Decoded records for the given service.
  * @example

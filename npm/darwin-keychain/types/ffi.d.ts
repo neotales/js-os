@@ -2,8 +2,6 @@
 import type { GenericPassword, KeychainHandle, SecretRecord } from "./types.js";
 /** Reports whether the native Keychain backend loaded successfully. */
 export declare function isAvailable(): boolean;
-/** Reports whether the active backend supports Keychain enumeration. */
-export declare function isListAvailable(): boolean;
 /** Byte-oriented native generic-password operations. */
 export declare const DarwinKeychain: {
     getSecretBytes(service: string, account: string): Uint8Array | null;

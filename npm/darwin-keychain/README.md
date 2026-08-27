@@ -84,7 +84,7 @@ try {
 | Export                                                                                     | Subpath                         | Description                                         |
 | ------------------------------------------------------------------------------------------ | ------------------------------- | --------------------------------------------------- |
 | `getSecret`, `getSecretString`, `saveSecret`, `removeSecret`, `listSecrets`, `isAvailable` | `@neotales/darwin-keychain`     | Uniform secret-store facade.                        |
-| `DarwinKeychain`, `Security`, `isAvailable`, `isListAvailable`, `KeychainHandle`           | `@neotales/darwin-keychain/ffi` | Native generic-password and Security.framework API. |
+| `DarwinKeychain`, `Security`, `isAvailable`, `KeychainHandle`                              | `@neotales/darwin-keychain/ffi` | Native generic-password and Security.framework API. |
 | `SecretRecord`                                                                             | `@neotales/darwin-keychain`     | Keychain list record type.                          |
 
 ## Runtime Notes

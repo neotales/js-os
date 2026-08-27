@@ -1,11 +1,7 @@
-/**
- * darwin-keychain ffi_bun module.
- *
- * @module @neotales/darwin-keychain
- */
+/** Bun FFI backend for macOS Keychain. */
 
 import { dlopen, type Pointer, ptr, read } from "bun:ffi";
-import type { DarwinKeychainBackend, SecretRecord } from "./types.js";
+import type { DarwinKeychainBackend, SecretRecord } from "./types.ts";
 
 const sec = dlopen("/System/Library/Frameworks/Security.framework/Security", {
   SecKeychainFindGenericPassword: {
@@ -16,108 +12,74 @@ const sec = dlopen("/System/Library/Frameworks/Security.framework/Security", {
     args: ["ptr", "u32", "ptr", "u32", "ptr", "u32", "ptr", "ptr"],
     returns: "i32",
   },
-  SecKeychainItemModifyAttributesAndData: {
-    args: ["ptr", "ptr", "u32", "ptr"],
-    returns: "i32",
-  },
-  SecKeychainItemDelete: {
-    args: ["ptr"],
-    returns: "i32",
-  },
-  SecKeychainItemFreeContent: {
-    args: ["ptr", "ptr"],
-    returns: "i32",
-  },
-  SecKeychainSearchCreateFromAttributes: {
-    args: ["ptr", "i32", "ptr", "ptr"],
-    returns: "i32",
-  },
-  SecKeychainSearchCopyNext: {
-    args: ["ptr", "ptr"],
-    returns: "i32",
-  },
+  SecKeychainItemModifyAttributesAndData: { args: ["ptr", "ptr", "u32", "ptr"], returns: "i32" },
+  SecKeychainItemDelete: { args: ["ptr"], returns: "i32" },
+  SecKeychainItemFreeContent: { args: ["ptr", "ptr"], returns: "i32" },
+  SecKeychainSearchCreateFromAttributes: { args: ["ptr", "i32", "ptr", "ptr"], returns: "i32" },
+  SecKeychainSearchCopyNext: { args: ["ptr", "ptr"], returns: "i32" },
   SecKeychainItemCopyAttributesAndData: {
     args: ["ptr", "ptr", "ptr", "ptr", "ptr", "ptr"],
     returns: "i32",
   },
-  SecKeychainItemFreeAttributesAndData: {
-    args: ["ptr", "ptr"],
-    returns: "i32",
-  },
+  SecKeychainItemFreeAttributesAndData: { args: ["ptr", "ptr"], returns: "i32" },
 });
-
 const cf = dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", {
-  CFRelease: {
-    args: ["ptr"],
-    returns: "void",
-  },
+  CFRelease: { args: ["ptr"], returns: "void" },
 });
 
 const ERR_ITEM_NOT_FOUND = -25300;
 const ITEM_CLASS_GENERIC_PASSWORD = 0x67656e70;
 const ATTR_SERVICE = 0x73766365;
 const ATTR_ACCOUNT = 0x61636374;
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
-const enc = new TextEncoder();
-const dec = new TextDecoder();
-
-function cbytes(value: string): Uint8Array {
-  return enc.encode(value);
+function check(status: number, operation: string): void {
+  if (status !== 0)
+    throw new Error(`${operation} failed (${status})`);
 }
 
-function osCheck(status: number, message: string): void {
-  if (status !== 0) throw new Error(`${message} (${status})`);
+function readPointer(buffer: Uint8Array): number {
+  return Number(new DataView(buffer.buffer).getBigUint64(0, true));
 }
 
-function readPtr(buf: Uint8Array): number {
-  return Number(new DataView(buf.buffer).getBigUint64(0, true));
-}
-
-function ptrToBytes(intPtr: number, len: number): Uint8Array {
-  const out = new Uint8Array(len);
-  for (let i = 0; i < len; i++) out[i] = read.u8(intPtr as Pointer, i);
-  return out;
-}
-
-function findRecord(
-  service: string,
-  account: string,
-): {
-  dataPtr: number;
-  itemPtr: number;
-  passwordLength: number;
+function find(service: string, account: string): {
+  data: number;
+  item: number;
+  length: number;
 } | null {
-  const serviceBytes = cbytes(service);
-  const accountBytes = cbytes(account);
-  const pwLenBuf = new Uint8Array(4);
-  const pwDataBuf = new Uint8Array(8);
-  const itemRefBuf = new Uint8Array(8);
-
+  const serviceBytes = encoder.encode(service);
+  const accountBytes = encoder.encode(account);
+  const length = new Uint8Array(4);
+  const data = new Uint8Array(8);
+  const item = new Uint8Array(8);
   const status = sec.symbols.SecKeychainFindGenericPassword(
     null,
     serviceBytes.length,
     ptr(serviceBytes),
     accountBytes.length,
     ptr(accountBytes),
-    ptr(pwLenBuf),
-    ptr(pwDataBuf),
-    ptr(itemRefBuf),
+    ptr(length),
+    ptr(data),
+    ptr(item),
   );
-
-  if (status === ERR_ITEM_NOT_FOUND) return null;
-  osCheck(status, "SecKeychainFindGenericPassword failed");
-
+  if (status === ERR_ITEM_NOT_FOUND)
+    return null;
+  check(status, "SecKeychainFindGenericPassword");
   return {
-    dataPtr: readPtr(pwDataBuf),
-    itemPtr: readPtr(itemRefBuf),
-    passwordLength: new DataView(pwLenBuf.buffer).getUint32(0, true),
+    data: readPointer(data),
+    item: readPointer(item),
+    length: new DataView(length.buffer).getUint32(0, true),
   };
 }
 
-function releaseFindResult(found: { dataPtr: number; itemPtr: number } | null): void {
-  if (!found) return;
-  if (found.dataPtr) sec.symbols.SecKeychainItemFreeContent(null, found.dataPtr as Pointer);
-  if (found.itemPtr) cf.symbols.CFRelease(found.itemPtr as Pointer);
+function release(found: { data: number; item: number } | null): void {
+  if (!found)
+    return;
+  if (found.data)
+    sec.symbols.SecKeychainItemFreeContent(null, found.data as Pointer);
+  if (found.item)
+    cf.symbols.CFRelease(found.item as Pointer);
 }
 
 function serviceAttributes(service: string): {
@@ -125,7 +87,7 @@ function serviceAttributes(service: string): {
   attribute: Uint8Array;
   list: Uint8Array;
 } {
-  const serviceBytes = cbytes(service);
+  const serviceBytes = encoder.encode(service);
   const attribute = new Uint8Array(16);
   const attributeView = new DataView(attribute.buffer);
   attributeView.setUint32(0, ATTR_SERVICE, true);
@@ -160,7 +122,7 @@ function accountForItem(item: number): string {
   );
   if (status !== 0)
     return "";
-  const attributeList = readPtr(attributes);
+  const attributeList = readPointer(attributes);
   if (!attributeList)
     return "";
   try {
@@ -176,43 +138,46 @@ function accountForItem(item: number): string {
     const account = new Uint8Array(byteLength);
     for (let index = 0; index < byteLength; index++)
       account[index] = read.u8(data as Pointer, index);
-    return dec.decode(account);
+    return decoder.decode(account);
   } finally {
     sec.symbols.SecKeychainItemFreeAttributesAndData(attributeList as Pointer, null);
   }
 }
 
+/** Raw generic-password operations implemented through Bun FFI. */
 export const backend: DarwinKeychainBackend = {
-  getSecretBytes(service: string, account: string): Uint8Array | null {
-    const found = findRecord(service, account);
-    if (!found) return null;
+  getSecretBytes(service, account): Uint8Array | null {
+    const found = find(service, account);
+    if (!found)
+      return null;
     try {
-      return ptrToBytes(found.dataPtr, found.passwordLength);
+      const secret = new Uint8Array(found.length);
+      for (let index = 0; index < found.length; index++)
+        secret[index] = read.u8(found.data as Pointer, index);
+      return secret;
     } finally {
-      releaseFindResult(found);
+      release(found);
     }
   },
-
-  saveSecretBytes(service: string, account: string, secret: Uint8Array): void {
-    const found = findRecord(service, account);
+  saveSecretBytes(service, account, secret): void {
+    const found = find(service, account);
     try {
-      if (found && found.itemPtr) {
-        osCheck(
+      if (found) {
+        check(
           sec.symbols.SecKeychainItemModifyAttributesAndData(
-            found.itemPtr as Pointer,
+            found.item as Pointer,
             null,
             secret.length,
             ptr(secret),
           ),
-          "SecKeychainItemModifyAttributesAndData failed",
+          "SecKeychainItemModifyAttributesAndData",
         );
         return;
       }
-
-      const serviceBytes = cbytes(service);
-      const accountBytes = cbytes(account);
-      const itemOut = new Uint8Array(8);
-      osCheck(
+      const serviceBytes = encoder.encode(service);
+      const accountBytes = encoder.encode(account);
+      const item = new Uint8Array(8);
+      check(
         sec.symbols.SecKeychainAddGenericPassword(
           null,
           serviceBytes.length,
@@ -221,32 +186,29 @@ export const backend: DarwinKeychainBackend = {
           ptr(accountBytes),
           secret.length,
           ptr(secret),
-          ptr(itemOut),
+          ptr(item),
         ),
-        "SecKeychainAddGenericPassword failed",
+        "SecKeychainAddGenericPassword",
       );
-      const item = readPtr(itemOut);
-      if (item) cf.symbols.CFRelease(item as Pointer);
+      const pointer = readPointer(item);
+      if (pointer)
+        cf.symbols.CFRelease(pointer as Pointer);
     } finally {
-      releaseFindResult(found);
+      release(found);
     }
   },
-
-  removeSecret(service: string, account: string): boolean {
-    const found = findRecord(service, account);
-    if (!found) return false;
+  removeSecret(service, account): boolean {
+    const found = find(service, account);
+    if (!found)
+      return false;
     try {
-      osCheck(
-        sec.symbols.SecKeychainItemDelete(found.itemPtr as Pointer),
-        "SecKeychainItemDelete failed",
-      );
+      check(sec.symbols.SecKeychainItemDelete(found.item as Pointer), "SecKeychainItemDelete");
       return true;
     } finally {
-      releaseFindResult(found);
+      release(found);
     }
   },
-
-  listSecrets(service: string): SecretRecord[] {
+  listSecrets(service): SecretRecord[] {
     const { serviceBytes: _serviceBytes, attribute: _attribute, list } = serviceAttributes(service);
     const search = new Uint8Array(8);
     const status = sec.symbols.SecKeychainSearchCreateFromAttributes(
@@ -257,8 +219,8 @@ export const backend: DarwinKeychainBackend = {
     );
     if (status === ERR_ITEM_NOT_FOUND)
       return [];
-    osCheck(status, "SecKeychainSearchCreateFromAttributes failed");
-    const searchPointer = readPtr(search);
+    check(status, "SecKeychainSearchCreateFromAttributes");
+    const searchPointer = readPointer(search);
     if (!searchPointer)
       return [];
     const records: SecretRecord[] = [];
@@ -268,7 +230,7 @@ export const backend: DarwinKeychainBackend = {
         const next = sec.symbols.SecKeychainSearchCopyNext(searchPointer as Pointer, ptr(item));
         if (next !== 0)
           break;
-        const itemPointer = readPtr(item);
+        const itemPointer = readPointer(item);
         if (!itemPointer)
           break;
         try {

@@ -8,20 +8,20 @@ import {
   removeSecret,
   saveSecret,
 } from "./mod.ts";
-import { DarwinKeychain, isAvailable as isNativeAvailable, Security } from "./ffi.ts";
+import { DarwinKeychain, isDarwinKeychainAvailable, Security } from "./ffi.ts";
 
 test("keychain availability reports a boolean", () => {
   assert.equal(typeof isAvailable(), "boolean");
 });
 
 test("native FFI entry point reports availability and defers unsupported errors", () => {
-  assert.equal(typeof isNativeAvailable(), "boolean");
-  if (!isNativeAvailable())
+  assert.equal(typeof isDarwinKeychainAvailable(), "boolean");
+  if (!isDarwinKeychainAvailable())
     assert.throws(() => DarwinKeychain.getSecretBytes("service", "account"));
 });
 
 test("Security API defers unsupported errors", () => {
-  if (!isNativeAvailable())
+  if (!isDarwinKeychainAvailable())
     assert.throws(() => Security.SecKeychainFindGenericPassword("service", "account"));
 });
 

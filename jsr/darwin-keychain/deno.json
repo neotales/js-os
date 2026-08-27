@@ -1,7 +1,7 @@
 {
   "name": "@neotales/darwin-keychain",
   "version": "0.0.0-alpha.0",
-  "description": "macOS keychain access via Security.framework FFI with get/set/delete/list helpers. Deno on macOS only.",
+  "description": "macOS keychain access via Security.framework FFI with get/set/delete/list helpers.",
   "license": "MIT",
   "exports": {
     ".": "./mod.ts",

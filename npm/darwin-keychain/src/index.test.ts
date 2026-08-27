@@ -9,12 +9,7 @@ import {
   removeSecret,
   saveSecret,
 } from "./index.js";
-import {
-  DarwinKeychain,
-  isAvailable as isNativeAvailable,
-  isListAvailable,
-  Security,
-} from "./ffi.js";
+import { DarwinKeychain, isAvailable as isNativeAvailable, Security } from "./ffi.js";
 
 const DARWIN = process.platform === "darwin";
 const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||
@@ -83,13 +78,11 @@ test(
       }
       strictEqual(getSecret(service, account) instanceof Uint8Array, true);
 
-      if (isListAvailable()) {
-        const records = listSecrets(service);
-        strictEqual(
-          records.some((record) => record.service === service && record.account === account),
-          true,
-        );
-      }
+      const records = listSecrets(service);
+      strictEqual(
+        records.some((record) => record.service === service && record.account === account),
+        true,
+      );
       strictEqual(removeSecret(service, account), true);
     } catch (error) {
       if (shouldSkipIntegration(error)) {

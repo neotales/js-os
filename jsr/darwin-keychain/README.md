@@ -55,9 +55,9 @@ Services and accounts must be non-empty. The root API stores generic-password en
 ## Native API
 
 ```typescript
-import { isAvailable, Security } from "@neotales/darwin-keychain/ffi";
+import { isDarwinKeychainAvailable, Security } from "@neotales/darwin-keychain/ffi";
 
-if (!isAvailable())
+if (!isDarwinKeychainAvailable())
   throw new Error("Keychain FFI is unavailable");
 
 const item = Security.SecKeychainAddGenericPassword(
@@ -84,12 +84,12 @@ try {
 | Export                                                                                     | Subpath                         | Description                                         |
 | ------------------------------------------------------------------------------------------ | ------------------------------- | --------------------------------------------------- |
 | `getSecret`, `getSecretString`, `saveSecret`, `removeSecret`, `listSecrets`, `isAvailable` | `@neotales/darwin-keychain`     | Uniform secret-store facade.                        |
-| `DarwinKeychain`, `Security`, `isAvailable`, `isListAvailable`, `KeychainHandle`           | `@neotales/darwin-keychain/ffi` | Native generic-password and Security.framework API. |
+| `DarwinKeychain`, `Security`, `isDarwinKeychainAvailable`, `KeychainHandle`                | `@neotales/darwin-keychain/ffi` | Native generic-password and Security.framework API. |
 | `SecretRecord`                                                                             | `@neotales/darwin-keychain`     | Keychain list record type.                          |
 
 ## Runtime Notes
 
-This JSR package is for Deno on macOS and requires `--allow-ffi`. On non-macOS systems `isAvailable()` returns `false`; root reads, removals, and lists return safe defaults, while native `/ffi` calls throw when invoked.
+This JSR package supports Deno, Node.js 26+ with `--experimental-ffi`, and Bun on macOS. On non-macOS systems `isAvailable()` returns `false`; root reads, removals, and lists return safe defaults, while native `/ffi` calls throw when invoked.
 
 ## License
 

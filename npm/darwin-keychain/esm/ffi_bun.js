@@ -25,6 +25,22 @@ const sec = dlopen("/System/Library/Frameworks/Security.framework/Security", {
         args: ["ptr", "ptr"],
         returns: "i32",
     },
+    SecKeychainSearchCreateFromAttributes: {
+        args: ["ptr", "i32", "ptr", "ptr"],
+        returns: "i32",
+    },
+    SecKeychainSearchCopyNext: {
+        args: ["ptr", "ptr"],
+        returns: "i32",
+    },
+    SecKeychainItemCopyAttributesAndData: {
+        args: ["ptr", "ptr", "ptr", "ptr", "ptr", "ptr"],
+        returns: "i32",
+    },
+    SecKeychainItemFreeAttributesAndData: {
+        args: ["ptr", "ptr"],
+        returns: "i32",
+    },
 });
 const cf = dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", {
     CFRelease: {
@@ -33,7 +49,11 @@ const cf = dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFound
     },
 });
 const ERR_ITEM_NOT_FOUND = -25300;
+const ITEM_CLASS_GENERIC_PASSWORD = 0x67656e70;
+const ATTR_SERVICE = 0x73766365;
+const ATTR_ACCOUNT = 0x61636374;
 const enc = new TextEncoder();
+const dec = new TextDecoder();
 function cbytes(value) {
     return enc.encode(value);
 }
@@ -73,6 +93,55 @@ function releaseFindResult(found) {
         sec.symbols.SecKeychainItemFreeContent(null, found.dataPtr);
     if (found.itemPtr)
         cf.symbols.CFRelease(found.itemPtr);
+}
+function serviceAttributes(service) {
+    const serviceBytes = cbytes(service);
+    const attribute = new Uint8Array(16);
+    const attributeView = new DataView(attribute.buffer);
+    attributeView.setUint32(0, ATTR_SERVICE, true);
+    attributeView.setUint32(4, serviceBytes.length, true);
+    attributeView.setBigUint64(8, BigInt(ptr(serviceBytes)), true);
+    const list = new Uint8Array(16);
+    const listView = new DataView(list.buffer);
+    listView.setUint32(0, 1, true);
+    listView.setBigUint64(8, BigInt(ptr(attribute)), true);
+    return { serviceBytes, attribute, list };
+}
+function accountForItem(item) {
+    const tag = new Uint8Array(4);
+    new DataView(tag.buffer).setUint32(0, ATTR_ACCOUNT, true);
+    const format = new Uint8Array(4);
+    const info = new Uint8Array(24);
+    const infoView = new DataView(info.buffer);
+    infoView.setUint32(0, 1, true);
+    infoView.setBigUint64(8, BigInt(ptr(tag)), true);
+    infoView.setBigUint64(16, BigInt(ptr(format)), true);
+    const attributes = new Uint8Array(8);
+    const length = new Uint8Array(4);
+    const status = sec.symbols.SecKeychainItemCopyAttributesAndData(item, ptr(info), null, ptr(attributes), ptr(length), null);
+    if (status !== 0)
+        return "";
+    const attributeList = readPtr(attributes);
+    if (!attributeList)
+        return "";
+    try {
+        if (read.u32(attributeList, 0) === 0)
+            return "";
+        const attribute = Number(read.ptr(attributeList, 8));
+        if (!attribute || read.u32(attribute, 0) !== ATTR_ACCOUNT)
+            return "";
+        const byteLength = read.u32(attribute, 4);
+        const data = Number(read.ptr(attribute, 8));
+        if (!data || byteLength === 0)
+            return "";
+        const account = new Uint8Array(byteLength);
+        for (let index = 0; index < byteLength; index++)
+            account[index] = read.u8(data, index);
+        return dec.decode(account);
+    }
+    finally {
+        sec.symbols.SecKeychainItemFreeAttributesAndData(attributeList, null);
+    }
 }
 export const backend = {
     getSecretBytes(service, account) {
@@ -116,5 +185,43 @@ export const backend = {
         finally {
             releaseFindResult(found);
         }
+    },
+    listSecrets(service) {
+        const { serviceBytes: _serviceBytes, attribute: _attribute, list } = serviceAttributes(service);
+        const search = new Uint8Array(8);
+        const status = sec.symbols.SecKeychainSearchCreateFromAttributes(null, ITEM_CLASS_GENERIC_PASSWORD, ptr(list), ptr(search));
+        if (status === ERR_ITEM_NOT_FOUND)
+            return [];
+        osCheck(status, "SecKeychainSearchCreateFromAttributes failed");
+        const searchPointer = readPtr(search);
+        if (!searchPointer)
+            return [];
+        const records = [];
+        try {
+            while (true) {
+                const item = new Uint8Array(8);
+                const next = sec.symbols.SecKeychainSearchCopyNext(searchPointer, ptr(item));
+                if (next !== 0)
+                    break;
+                const itemPointer = readPtr(item);
+                if (!itemPointer)
+                    break;
+                try {
+                    const account = accountForItem(itemPointer);
+                    if (!account)
+                        continue;
+                    const secret = this.getSecretBytes(service, account);
+                    if (secret !== null)
+                        records.push({ service, account, secret });
+                }
+                finally {
+                    cf.symbols.CFRelease(itemPointer);
+                }
+            }
+        }
+        finally {
+            cf.symbols.CFRelease(searchPointer);
+        }
+        return records;
     },
 };
