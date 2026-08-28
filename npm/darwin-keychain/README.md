@@ -55,36 +55,36 @@ Services and accounts must be non-empty. The root API stores generic-password en
 ## Native API
 
 ```typescript
-import { isAvailable, Security } from "@neotales/darwin-keychain/ffi";
+import { isAvailable, Keychain } from "@neotales/darwin-keychain/ffi";
 
 if (!isAvailable())
   throw new Error("Keychain FFI is unavailable");
 
-const item = Security.SecKeychainAddGenericPassword(
+const item = Keychain.SecKeychainAddGenericPassword(
   "my-service",
   "native-token",
   new TextEncoder().encode("secret"),
 );
 try {
-  Security.SecKeychainItemModifyAttributesAndData(item, new TextEncoder().encode("updated"));
-  const found = Security.SecKeychainFindGenericPassword("my-service", "native-token");
+  Keychain.SecKeychainItemModifyAttributesAndData(item, new TextEncoder().encode("updated"));
+  const found = Keychain.SecKeychainFindGenericPassword("my-service", "native-token");
   console.log(found?.secret);
   if (found)
-    Security.CFRelease(found.item);
-  Security.SecKeychainItemDelete(item);
+    Keychain.CFRelease(found.item);
+  Keychain.SecKeychainItemDelete(item);
 } finally {
-  Security.CFRelease(item);
+  Keychain.CFRelease(item);
 }
 ```
 
-`Security` also exposes `SecKeychainSearchCreateFromAttributes`, `SecKeychainSearchCopyNext`, and `SecKeychainItemCopyAttributesAndData` for native enumeration. Returned `KeychainHandle` instances are runtime-specific opaque references; release every item and search handle with `Security.CFRelease()`.
+`Keychain` also exposes `SecKeychainSearchCreateFromAttributes`, `SecKeychainSearchCopyNext`, and `SecKeychainItemCopyAttributesAndData` for native enumeration. Returned `KeychainHandle` instances are runtime-specific opaque references; release every item and search handle with `Keychain.CFRelease()`.
 
 ## Exports
 
 | Export                                                                                     | Subpath                         | Description                                         |
 | ------------------------------------------------------------------------------------------ | ------------------------------- | --------------------------------------------------- |
 | `getSecret`, `getSecretString`, `saveSecret`, `removeSecret`, `listSecrets`, `isAvailable` | `@neotales/darwin-keychain`     | Uniform secret-store facade.                        |
-| `DarwinKeychain`, `Security`, `isAvailable`, `KeychainHandle`                              | `@neotales/darwin-keychain/ffi` | Native generic-password and Security.framework API. |
+| `DarwinKeychain`, `Keychain`, `isAvailable`, `KeychainHandle`                              | `@neotales/darwin-keychain/ffi` | Native generic-password and Security.framework API. |
 | `SecretRecord`                                                                             | `@neotales/darwin-keychain`     | Keychain list record type.                          |
 
 ## Runtime Notes

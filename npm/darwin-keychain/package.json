@@ -1,6 +1,6 @@
 {
   "name": "@neotales/darwin-keychain",
-  "version": "0.0.0-alpha.1",
+  "version": "0.0.0-alpha.2",
   "description": "macOS keychain API for Node, Bun, and Deno.",
   "keywords": [
     "darwin",

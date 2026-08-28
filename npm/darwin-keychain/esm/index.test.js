@@ -2,7 +2,7 @@ import { deepStrictEqual, strictEqual, throws } from "node:assert/strict";
 import process from "node:process";
 import { test } from "node:test";
 import { getSecret, getSecretString, isAvailable, listSecrets, removeSecret, saveSecret, } from "./index.js";
-import { DarwinKeychain, isAvailable as isNativeAvailable, Security } from "./ffi.js";
+import { DarwinKeychain, isAvailable as isNativeAvailable, Keychain } from "./ffi.js";
 const DARWIN = process.platform === "darwin";
 const DANGEROUS_MUTATIONS = process.env.TEST_DANGEROUS_OS_MUTATIONS === "true" ||
     process.env.CI === "true";
@@ -25,9 +25,9 @@ test("darwin-keychain::native FFI entry point defers unsupported errors", () => 
     if (!isNativeAvailable())
         throws(() => DarwinKeychain.getSecretBytes("svc", "acct"));
 });
-test("darwin-keychain::Security API defers unsupported errors", () => {
+test("darwin-keychain::Keychain API defers unsupported errors", () => {
     if (!isNativeAvailable())
-        throws(() => Security.SecKeychainFindGenericPassword("svc", "acct"));
+        throws(() => Keychain.SecKeychainFindGenericPassword("svc", "acct"));
 });
 test("darwin-keychain::unsupported platform returns safe defaults", { skip: DARWIN }, () => {
     strictEqual(isAvailable(), false);

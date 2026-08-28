@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import type { DarwinKeychainBackend } from "./types.ts";
 
 const require = createRequire(import.meta.url);
+// deno-lint-ignore no-explicit-any -- node:ffi has no ambient type declarations.
 let ffi: any;
 try {
   ffi = require("node:ffi");

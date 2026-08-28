@@ -173,12 +173,12 @@ function searchPointer(handle: KeychainHandle): SearchPointer {
  *
  * @example
  * ```ts
- * import { Security } from "@neotales/darwin-keychain/ffi";
+ * import { Keychain } from "@neotales/darwin-keychain/ffi";
  *
- * const result = Security.SecKeychainFindGenericPassword("service", "account");
+ * const result = Keychain.SecKeychainFindGenericPassword("service", "account");
  * ```
  */
-export const Security = {
+export const Keychain = {
   /**
    * Finds a native generic-password item.
    *
@@ -187,9 +187,9 @@ export const Security = {
    * @returns An owned item and copied secret, or `null`.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * const result = Security.SecKeychainFindGenericPassword("service", "account");
+   * const result = Keychain.SecKeychainFindGenericPassword("service", "account");
    * ```
    */
   SecKeychainFindGenericPassword(service: string, account: string): GenericPassword | null {
@@ -207,9 +207,9 @@ export const Security = {
    * @returns An owned item handle.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * const item = Security.SecKeychainAddGenericPassword("service", "account", new Uint8Array());
+   * const item = Keychain.SecKeychainAddGenericPassword("service", "account", new Uint8Array());
    * ```
    */
   SecKeychainAddGenericPassword(
@@ -228,9 +228,9 @@ export const Security = {
    * @returns Nothing.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * Security.SecKeychainItemModifyAttributesAndData(item, new Uint8Array());
+   * Keychain.SecKeychainItemModifyAttributesAndData(item, new Uint8Array());
    * ```
    */
   SecKeychainItemModifyAttributesAndData(item: KeychainHandle, secret: Uint8Array): void {
@@ -244,9 +244,9 @@ export const Security = {
    * @returns Nothing.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * Security.SecKeychainItemDelete(item);
+   * Keychain.SecKeychainItemDelete(item);
    * ```
    */
   SecKeychainItemDelete(item: KeychainHandle): void {
@@ -261,9 +261,9 @@ export const Security = {
    * @returns An owned search handle.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * const search = Security.SecKeychainSearchCreateFromAttributes("service");
+   * const search = Keychain.SecKeychainSearchCreateFromAttributes("service");
    * ```
    */
   SecKeychainSearchCreateFromAttributes(service: string): KeychainHandle {
@@ -282,9 +282,9 @@ export const Security = {
    * @returns The next owned item, or `null`.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * const item = Security.SecKeychainSearchCopyNext(search);
+   * const item = Keychain.SecKeychainSearchCopyNext(search);
    * ```
    */
   SecKeychainSearchCopyNext(search: KeychainHandle): KeychainHandle | null {
@@ -302,9 +302,9 @@ export const Security = {
    * @returns A copied record, or `null`.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * const record = Security.SecKeychainItemCopyAttributesAndData(item, "service");
+   * const record = Keychain.SecKeychainItemCopyAttributesAndData(item, "service");
    * ```
    */
   SecKeychainItemCopyAttributesAndData(item: KeychainHandle, service: string): SecretRecord | null {
@@ -321,9 +321,9 @@ export const Security = {
    * @returns Nothing.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * Security.CFRelease(handle);
+   * Keychain.CFRelease(handle);
    * ```
    */
   CFRelease(handle: KeychainHandle): void {

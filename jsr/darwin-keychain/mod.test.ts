@@ -8,7 +8,7 @@ import {
   removeSecret,
   saveSecret,
 } from "./mod.ts";
-import { DarwinKeychain, isDarwinKeychainAvailable, Security } from "./ffi.ts";
+import { DarwinKeychain, isDarwinKeychainAvailable, Keychain } from "./ffi.ts";
 
 test("keychain availability reports a boolean", () => {
   assert.equal(typeof isAvailable(), "boolean");
@@ -20,9 +20,9 @@ test("native FFI entry point reports availability and defers unsupported errors"
     assert.throws(() => DarwinKeychain.getSecretBytes("service", "account"));
 });
 
-test("Security API defers unsupported errors", () => {
+test("Keychain API defers unsupported errors", () => {
   if (!isDarwinKeychainAvailable())
-    assert.throws(() => Security.SecKeychainFindGenericPassword("service", "account"));
+    assert.throws(() => Keychain.SecKeychainFindGenericPassword("service", "account"));
 });
 
 test("unsupported platforms return safe defaults", { skip: Deno.build.os === "darwin" }, () => {

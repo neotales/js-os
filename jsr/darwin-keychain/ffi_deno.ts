@@ -399,10 +399,10 @@ export const backend: DarwinKeychainBackend = {
 
 /**
  * Direct Security.framework operations using opaque {@link KeychainHandle}
- * references. Call {@link Security.CFRelease} exactly once for every item or
+ * references. Call {@link Keychain.CFRelease} exactly once for every item or
  * search handle returned by this object.
  */
-export const Security = {
+export const Keychain = {
   SecKeychainFindGenericPassword(service: string, account: string): GenericPassword | null {
     const serviceBytes = cbytes(service);
     const accountBytes = cbytes(account);

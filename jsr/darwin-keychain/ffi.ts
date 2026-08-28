@@ -81,7 +81,7 @@ interface DarwinKeychainApi {
    */
   listSecrets(service: string): SecretRecord[];
 }
-type SecurityApi = {
+type KeychainApi = {
   /**
    * Finds a native generic-password item.
    *
@@ -90,8 +90,8 @@ type SecurityApi = {
    * @returns An owned item and copied secret, or `null`.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
-   * const result = Security.SecKeychainFindGenericPassword("service", "account");
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
+   * const result = Keychain.SecKeychainFindGenericPassword("service", "account");
    * ```
    */
   SecKeychainFindGenericPassword(service: string, account: string): GenericPassword | null;
@@ -104,9 +104,9 @@ type SecurityApi = {
    * @returns An owned item handle.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * const item = Security.SecKeychainAddGenericPassword("service", "account", new Uint8Array());
+   * const item = Keychain.SecKeychainAddGenericPassword("service", "account", new Uint8Array());
    * ```
    */
   SecKeychainAddGenericPassword(
@@ -122,9 +122,9 @@ type SecurityApi = {
    * @returns Nothing.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * Security.SecKeychainItemModifyAttributesAndData(item, new Uint8Array());
+   * Keychain.SecKeychainItemModifyAttributesAndData(item, new Uint8Array());
    * ```
    */
   SecKeychainItemModifyAttributesAndData(item: KeychainHandle, secret: Uint8Array): void;
@@ -135,9 +135,9 @@ type SecurityApi = {
    * @returns Nothing.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * Security.SecKeychainItemDelete(item);
+   * Keychain.SecKeychainItemDelete(item);
    * ```
    */
   SecKeychainItemDelete(item: KeychainHandle): void;
@@ -148,9 +148,9 @@ type SecurityApi = {
    * @returns An owned search handle.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * const search = Security.SecKeychainSearchCreateFromAttributes("service");
+   * const search = Keychain.SecKeychainSearchCreateFromAttributes("service");
    * ```
    */
   SecKeychainSearchCreateFromAttributes(service: string): KeychainHandle;
@@ -161,9 +161,9 @@ type SecurityApi = {
    * @returns The next owned item, or `null`.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * const item = Security.SecKeychainSearchCopyNext(search);
+   * const item = Keychain.SecKeychainSearchCopyNext(search);
    * ```
    */
   SecKeychainSearchCopyNext(search: KeychainHandle): KeychainHandle | null;
@@ -175,9 +175,9 @@ type SecurityApi = {
    * @returns A copied record, or `null`.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * const record = Security.SecKeychainItemCopyAttributesAndData(item, "service");
+   * const record = Keychain.SecKeychainItemCopyAttributesAndData(item, "service");
    * ```
    */
   SecKeychainItemCopyAttributesAndData(item: KeychainHandle, service: string): SecretRecord | null;
@@ -188,14 +188,14 @@ type SecurityApi = {
    * @returns Nothing.
    * @example
    * ```ts
-   * import { Security } from "@neotales/darwin-keychain/ffi";
+   * import { Keychain } from "@neotales/darwin-keychain/ffi";
    *
-   * Security.CFRelease(handle);
+   * Keychain.CFRelease(handle);
    * ```
    */
   CFRelease(handle: KeychainHandle): void;
 };
-const unavailableSecurity: SecurityApi = {
+const unavailableKeychain: KeychainApi = {
   SecKeychainFindGenericPassword(): GenericPassword | null {
     return unavailable();
   },
@@ -242,7 +242,7 @@ function searchPointer(handle: KeychainHandle): SearchPointer {
   return pointer as SearchPointer;
 }
 
-const portableSecurity: SecurityApi = {
+const portableKeychain: KeychainApi = {
   SecKeychainFindGenericPassword(service, account): GenericPassword | null {
     const secret = backend.getSecretBytes(service, account);
     return secret === null
@@ -292,27 +292,27 @@ const portableSecurity: SecurityApi = {
  *
  * @example
  * ```ts
- * import { Security } from "@neotales/darwin-keychain/ffi";
+ * import { Keychain } from "@neotales/darwin-keychain/ffi";
  *
- * const result = Security.SecKeychainFindGenericPassword("service", "account");
+ * const result = Keychain.SecKeychainFindGenericPassword("service", "account");
  * ```
  */
-export let Security: SecurityApi = unavailableSecurity;
+export let Keychain: KeychainApi = unavailableKeychain;
 let available = false;
 if (DARWIN) {
   try {
     if ("Deno" in globalThis) {
       const ffi = await import("./ffi_deno.ts");
       backend = ffi.backend;
-      Security = ffi.Security;
+      Keychain = ffi.Keychain;
       runtime = "deno";
     } else if ("Bun" in globalThis) {
       backend = (await import("./ffi_bun.ts")).backend;
-      Security = portableSecurity;
+      Keychain = portableKeychain;
       runtime = "bun";
     } else {
       backend = (await import("./ffi_node.ts")).backend;
-      Security = portableSecurity;
+      Keychain = portableKeychain;
       runtime = "node";
     }
     available = true;

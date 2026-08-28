@@ -1,6 +1,6 @@
 {
   "name": "@neotales/linux-libsecret",
-  "version": "0.0.0-alpha.0",
+  "version": "0.0.0-alpha.1",
   "description": "Linux libsecret API for Node, Bun, and Deno.",
   "license": "MIT",
   "exports": {

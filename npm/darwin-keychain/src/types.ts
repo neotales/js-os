@@ -98,7 +98,7 @@ export class KeychainHandle {
  * ```
  */
 export interface GenericPassword {
-  /** Item reference; release it with `Security.CFRelease`. */
+  /** Item reference; release it with `Keychain.CFRelease`. */
   item: KeychainHandle;
   /** Copied generic-password bytes. */
   secret: Uint8Array;
