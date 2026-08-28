@@ -1,2 +1,2 @@
-import type { LinuxKeyringBackend } from "./types.js";
-export declare const backend: LinuxKeyringBackend;
+import { type LibsecretBindings } from "./types.js";
+export declare const backend: LibsecretBindings;

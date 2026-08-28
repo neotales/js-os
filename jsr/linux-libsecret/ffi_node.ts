@@ -1,10 +1,10 @@
 /** Node.js FFI bindings for Linux libsecret. */
 
-import process from "node:process";
+import { createRequire } from "node:module";
 import {
   GCancellableHandle,
   type LibsecretBindings,
-  LibsecretErrorHandle,
+  type LibsecretErrorHandle,
   prepareGCancellable,
   prepareLibsecretError,
   releaseGCancellable,
@@ -12,11 +12,17 @@ import {
   type SecretRecord,
   SecretSchemaHandle,
   setLibsecretError,
-} from "./types.js";
+} from "./types.ts";
 
-const { createRequire } = process.getBuiltinModule("node:module");
-const require = createRequire(import.meta.url ?? "file:///");
-const ffi = require("node:ffi");
+const require = createRequire(import.meta.url);
+// deno-lint-ignore no-explicit-any -- node:ffi has no ambient type declarations.
+let ffi: any;
+try {
+  ffi = require("node:ffi");
+} catch (cause) {
+  throw new Error("Unable to load node:ffi. Run Node.js >= 26 with --experimental-ffi.", { cause });
+}
+
 const libsecret = ffi.dlopen("libsecret-1.so.0", {
   secret_schema_new: {
     arguments: ["pointer", "u32", "pointer", "u32", "pointer", "u32", "pointer"],

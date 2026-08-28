@@ -1,9 +1,10 @@
 {
   "name": "@neotales/linux-libsecret",
   "version": "0.0.0-alpha.0",
-  "description": "Linux secret storage access via libsecret FFI with get/set/delete/list helpers.",
+  "description": "Linux libsecret API for Node, Bun, and Deno.",
   "keywords": [
     "libsecret",
+    "keyring",
     "linux",
     "secret-service"
   ],
@@ -17,6 +18,10 @@
     ".": {
       "types": "./types/index.d.ts",
       "import": "./esm/index.js"
+    },
+    "./ffi": {
+      "types": "./types/ffi.d.ts",
+      "import": "./esm/ffi.js"
     }
   },
   "publishConfig": {

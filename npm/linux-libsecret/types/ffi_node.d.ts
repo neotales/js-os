@@ -1,2 +1,3 @@
-import type { LinuxKeyringBackend } from "./types.js";
-export declare const backend: LinuxKeyringBackend;
+/** Node.js FFI bindings for Linux libsecret. */
+import { type LibsecretBindings } from "./types.js";
+export declare const backend: LibsecretBindings;

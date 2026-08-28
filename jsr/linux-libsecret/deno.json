@@ -1,9 +1,11 @@
 {
   "name": "@neotales/linux-libsecret",
   "version": "0.0.0-alpha.0",
-  "description": "Linux secret storage access via libsecret FFI with get/set/delete/list helpers. Deno on Linux only.",
+  "description": "Linux libsecret API for Node, Bun, and Deno.",
   "license": "MIT",
   "exports": {
-    ".": "./mod.ts"
-  }
+    ".": "./mod.ts",
+    "./ffi": "./ffi.ts"
+  },
+  "exclude": ["ffi_bun.test.ts", "ffi_node.test.ts"]
 }

@@ -1,4 +1,3 @@
-import { dlopen, type Pointer, ptr, read } from "bun:ffi";
 import {
   GCancellableHandle,
   type LibsecretBindings,
@@ -9,8 +8,45 @@ import {
   SecretPasswordHandle,
   SecretSchemaHandle,
   setLibsecretError,
-} from "./types.js";
+} from "./types.ts";
 
+type Pointer = number;
+interface LibsecretLibrary {
+  symbols: {
+    secret_schema_new(...args: unknown[]): Pointer | null;
+    secret_password_lookup_sync(...args: unknown[]): Pointer | null;
+    secret_password_store_sync(...args: unknown[]): number;
+    secret_password_clear_sync(...args: unknown[]): number;
+    secret_password_free(pointer: Pointer): void;
+  };
+}
+interface GlibLibrary {
+  symbols: { g_error_free(pointer: Pointer): void };
+}
+interface GioLibrary {
+  symbols: {
+    g_cancellable_new(): Pointer | null;
+    g_cancellable_cancel(pointer: Pointer): void;
+  };
+}
+interface GobjectLibrary {
+  symbols: { g_object_unref(pointer: Pointer): void };
+}
+interface BunFfiModule {
+  dlopen(name: "libsecret-1.so.0", symbols: object): LibsecretLibrary;
+  dlopen(name: "libglib-2.0.so.0", symbols: object): GlibLibrary;
+  dlopen(name: "libgio-2.0.so.0", symbols: object): GioLibrary;
+  dlopen(name: "libgobject-2.0.so.0", symbols: object): GobjectLibrary;
+  ptr(value: Uint8Array): Pointer;
+  read: {
+    u8(pointer: Pointer, offset: number): number;
+    ptr(pointer: Pointer, offset: number): Pointer | null;
+  };
+}
+
+const specifier = "bun:ffi";
+const ffi = await import(/* @vite-ignore */ specifier) as BunFfiModule;
+const { dlopen, ptr, read } = ffi;
 const libsecret = dlopen("libsecret-1.so.0", {
   secret_schema_new: { args: ["ptr", "u32", "ptr", "u32", "ptr", "u32", "ptr"], returns: "ptr" },
   secret_password_lookup_sync: {
@@ -28,16 +64,15 @@ const libsecret = dlopen("libsecret-1.so.0", {
   secret_password_free: { args: ["ptr"], returns: "void" },
 });
 const glib = dlopen("libglib-2.0.so.0", { g_error_free: { args: ["ptr"], returns: "void" } });
-const gio = (() => {
-  try {
-    return dlopen("libgio-2.0.so.0", {
-      g_cancellable_new: { args: [], returns: "ptr" },
-      g_cancellable_cancel: { args: ["ptr"], returns: "void" },
-    });
-  } catch {
-    return undefined;
-  }
-})();
+let gio: GioLibrary | undefined;
+try {
+  gio = dlopen("libgio-2.0.so.0", {
+    g_cancellable_new: { args: [], returns: "ptr" },
+    g_cancellable_cancel: { args: ["ptr"], returns: "void" },
+  });
+} catch {
+  // GIO is only needed for explicit GCancellable operations.
+}
 const gobject = dlopen("libgobject-2.0.so.0", {
   g_object_unref: { args: ["ptr"], returns: "void" },
 });
@@ -66,21 +101,22 @@ function schemaPointer(handle: SecretSchemaHandle): Pointer {
   const pointer = handle.valueOf();
   if (handle.runtime !== runtime || typeof pointer !== "number")
     throw new TypeError("Secret schema handle belongs to a different runtime.");
-  return pointer as Pointer;
+  return pointer;
 }
 
 function passwordPointer(handle: SecretPasswordHandle): Pointer {
   const pointer = handle.valueOf();
   if (handle.runtime !== runtime || typeof pointer !== "number")
     throw new TypeError("Secret password handle belongs to a different runtime.");
-  return pointer as Pointer;
+  return pointer;
 }
 
 function cancellablePointer(handle: GCancellableHandle): Pointer {
   prepareGCancellable(handle, runtime);
-  if (typeof handle.valueOf() !== "number")
+  const pointer = handle.valueOf();
+  if (typeof pointer !== "number")
     throw new TypeError("GCancellable handle belongs to a different runtime.");
-  return handle.valueOf() as Pointer;
+  return pointer;
 }
 
 function captureError(errorOut: LibsecretErrorHandle, errorStorage: Uint8Array): void {

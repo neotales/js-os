@@ -1,15 +1,16 @@
 /**
- * Linux libsecret helpers for storing and retrieving secrets.
+ * Linux libsecret helpers for generic secret records.
  *
  * @example Usage
  * ```ts
- * import { isLinuxLibsecretAvailable, saveSecret } from "@neotales/linux-libsecret";
+ * import { getSecretString, isAvailable, saveSecret } from "@neotales/linux-libsecret";
  *
- * if (isLinuxLibsecretAvailable()) {
+ * if (isAvailable()) {
  *   saveSecret("my-service", "my-account", "my-secret");
+ *   console.log(getSecretString("my-service", "my-account"));
  * }
  * ```
  *
  * @module
  */
-export { getSecretBytes, isLibsecretAvailable as isLinuxLibsecretAvailable, listSecrets, readSecret, removeSecret, saveSecret, } from "./vault.js";
+export { getSecret, getSecretString, isAvailable, listSecrets, removeSecret, saveSecret, } from "./vault.js";

@@ -1,93 +1,88 @@
 # @neotales/linux-libsecret
 
-## Overview
-
-`@neotales/linux-libsecret` provides simple Linux secret storage access backed by `libsecret` FFI.
-
-![logo](https://raw.githubusercontent.com/neotales/js-std/refs/heads/dev/eng/assets/logo.png)
-
-[![JSR](https://jsr.io/badges/@neotales/linux-libsecret)](https://jsr.io/@neotales/linux-libsecret)
-[![npm version](https://badge.fury.io/js/@neotales%2Flinux-libsecret.svg)](https://badge.fury.io/js/@neotales%2Flinux-libsecret)
-[![GitHub version](https://badge.fury.io/gh/neotales%2Fjs-os.svg)](https://badge.fury.io/gh/neotales%2Fjs-os)
-
-## Documentation
-
-Documentation is available on [jsr.io](https://jsr.io/@neotales/linux-libsecret/doc).
-
-A list of other modules can be found at [github.com/neotales/js-os](https://github.com/neotales/js-os).
+Linux secret storage backed by the freedesktop.org Secret Service through `libsecret`.
 
 ## Installation
 
 ```sh
 deno add jsr:@neotales/linux-libsecret
 npx jsr add @neotales/linux-libsecret
-npm install @neotales/linux-libsecret
 ```
 
 ## Usage
 
-```typescript
-import { isLinuxLibsecretAvailable, saveSecret } from "@neotales/linux-libsecret";
+```ts
+import { getSecretString, isAvailable, saveSecret } from "@neotales/linux-libsecret";
 
-if (isLinuxLibsecretAvailable()) {
+if (isAvailable()) {
   saveSecret("my-service", "my-account", "my-secret");
+  console.log(getSecretString("my-service", "my-account"));
 }
 ```
 
-## Examples
+The root module provides a uniform vault API:
 
-Write a secret:
+| Export            | Description                                        |
+| ----------------- | -------------------------------------------------- |
+| `isAvailable`     | Reports whether a native libsecret backend loaded. |
+| `getSecret`       | Reads raw secret bytes.                            |
+| `getSecretString` | Reads a UTF-8 secret string.                       |
+| `saveSecret`      | Creates or updates a secret from text or bytes.    |
+| `removeSecret`    | Deletes a secret.                                  |
+| `listSecrets`     | Lists service records with copied secret bytes.    |
 
-```typescript
-import { saveSecret } from "@neotales/linux-libsecret";
+## Native FFI
 
-saveSecret("my-service", "my-account", "my-secret");
+```ts
+import {
+  Gio,
+  isGioAvailable,
+  isLinuxKeyringAvailable,
+  Libsecret,
+  LibsecretErrorHandle,
+} from "@neotales/linux-libsecret/ffi";
+
+if (isLinuxKeyringAvailable()) {
+  const schema = Libsecret.secretSchemaNew(
+    "org.freedesktop.Secret.Generic",
+    0,
+    "service",
+    0,
+    "account",
+    0,
+    null,
+  );
+  if (schema !== null) {
+    const errorOut = new LibsecretErrorHandle();
+    const password = Libsecret.secretPasswordLookupSync(
+      schema,
+      null,
+      errorOut,
+      "service",
+      "my-service",
+      "account",
+      "my-account",
+      null,
+    );
+    if (errorOut.error() !== null) throw errorOut.error();
+    if (password !== null) Libsecret.secretPasswordFree(password);
+  }
+}
 ```
 
-Read a secret:
+`Libsecret` exposes camelCase wrappers for libsecret's native functions. `GError**` is represented by a caller-created `LibsecretErrorHandle`, which is bound to the runtime on its first call, reset when reused there, and read with `error()`. Schemas and returned passwords are runtime-bound handles; password text is read with `password.text()` and the handle must be released with `secretPasswordFree`.
 
-```typescript
-import { readSecret } from "@neotales/linux-libsecret";
-
-console.log(readSecret("my-service", "my-account"));
-```
-
-Read raw bytes:
-
-```typescript
-import { getSecretBytes } from "@neotales/linux-libsecret";
-
-console.log(getSecretBytes("my-service", "my-account"));
-```
-
-Delete a secret:
-
-```typescript
-import { removeSecret } from "@neotales/linux-libsecret";
-
-removeSecret("my-service", "my-account");
-```
-
-List secrets for a service:
-
-```typescript
-import { listSecrets } from "@neotales/linux-libsecret";
-
-console.log(listSecrets("my-service"));
-```
-
-## Exports
-
-| Export                                                                                                   | Subpath                     | Description                               |
-| -------------------------------------------------------------------------------------------------------- | --------------------------- | ----------------------------------------- |
-| `readSecret`, `getSecretBytes`, `saveSecret`, `removeSecret`, `listSecrets`, `isLinuxLibsecretAvailable` | `@neotales/linux-libsecret` | libsecret helpers and availability check. |
-| `SecretRecord`                                                                                           | `@neotales/linux-libsecret` | libsecret list record type.               |
+GIO cancellation is optional. Check `isGioAvailable()` before calling `Gio.cancellableNew()`, `Gio.cancellableCancel()`, or `Gio.cancellableRelease()`; those methods throw when GIO is unavailable. A `GCancellableHandle` is runtime-bound, can be passed to a synchronous password call, and must be released exactly once.
 
 ## Runtime Notes
 
-This package is Linux-specific. On non-Linux runtimes `isLinuxLibsecretAvailable()` returns `false`.
+This package is Linux-specific. On other platforms `isAvailable()` returns `false`; root reads, removals, and lists return safe defaults, while `/ffi` calls throw when invoked.
 
-Node prefers `node:ffi` and falls back to the optional `koffi` peer dependency. Bun and Deno use their native FFI support.
+- Deno requires `--allow-ffi`, for example: `deno run --allow-ffi app.ts`.
+- Node.js requires `--experimental-ffi`, for example: `node --experimental-ffi app.ts`.
+- Bun uses its built-in FFI and needs no additional flag.
+- `libsecret-1.so.0`, `libglib-2.0.so.0`, and `libgobject-2.0.so.0` are required for the normal backend. `libgio-2.0.so.0` may be absent unless you explicitly use `GCancellable` operations through `Gio`.
+- Install your distribution's libsecret runtime or development package as appropriate; package names vary by distribution. Also run a Secret Service implementation. `libsecret` is the client library, not a Secret Service implementation.
 
 ## License
 

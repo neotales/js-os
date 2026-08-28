@@ -1,10 +1,7 @@
 import { dlopen, ptr, read } from "bun:ffi";
-const ATTR_STRING = 0;
+import { GCancellableHandle, prepareGCancellable, prepareLibsecretError, releaseGCancellable, SecretPasswordHandle, SecretSchemaHandle, setLibsecretError, } from "./types.js";
 const libsecret = dlopen("libsecret-1.so.0", {
-    secret_schema_new: {
-        args: ["ptr", "u32", "ptr", "u32", "ptr", "u32", "ptr"],
-        returns: "ptr",
-    },
+    secret_schema_new: { args: ["ptr", "u32", "ptr", "u32", "ptr", "u32", "ptr"], returns: "ptr" },
     secret_password_lookup_sync: {
         args: ["ptr", "ptr", "ptr", "ptr", "ptr", "ptr", "ptr", "ptr"],
         returns: "ptr",
@@ -17,140 +14,141 @@ const libsecret = dlopen("libsecret-1.so.0", {
         args: ["ptr", "ptr", "ptr", "ptr", "ptr", "ptr", "ptr", "ptr"],
         returns: "i32",
     },
-    secret_password_search_sync: {
-        args: ["ptr", "u32", "ptr", "ptr", "ptr", "ptr", "ptr"],
-        returns: "ptr",
-    },
-    secret_password_searchv_sync: {
-        args: ["ptr", "ptr", "u32", "ptr", "ptr"],
-        returns: "ptr",
-    },
-    secret_retrievable_get_attributes: {
-        args: ["ptr"],
-        returns: "ptr",
-    },
-    secret_retrievable_retrieve_secret_sync: {
-        args: ["ptr", "ptr", "ptr"],
-        returns: "ptr",
-    },
-    secret_value_get: {
-        args: ["ptr", "ptr"],
-        returns: "ptr",
-    },
-    secret_value_unref: {
-        args: ["ptr"],
-        returns: "void",
-    },
-    secret_password_free: {
-        args: ["ptr"],
-        returns: "void",
-    },
+    secret_password_free: { args: ["ptr"], returns: "void" },
 });
-const glib = dlopen("libglib-2.0.so.0", {
-    g_hash_table_new: {
-        args: ["ptr", "ptr"],
-        returns: "ptr",
-    },
-    g_hash_table_insert: {
-        args: ["ptr", "ptr", "ptr"],
-        returns: "i32",
-    },
-    g_error_free: {
-        args: ["ptr"],
-        returns: "void",
-    },
-    g_hash_table_lookup: {
-        args: ["ptr", "ptr"],
-        returns: "ptr",
-    },
-    g_hash_table_unref: {
-        args: ["ptr"],
-        returns: "void",
-    },
-    g_list_free: {
-        args: ["ptr"],
-        returns: "void",
-    },
-});
-const enc = new TextEncoder();
-const dec = new TextDecoder();
-let schemaPtr = null;
-const refs = [];
-function cstr(value) {
-    const b = enc.encode(value);
-    const out = new Uint8Array(b.length + 1);
-    out.set(b);
-    return out;
-}
-function keep(value) {
-    refs.push(value);
-    return ptr(value);
-}
-function readErrorMessage(errorPtr) {
-    const msgPtr = Number(read.ptr(errorPtr, 8));
-    if (!msgPtr)
-        return "Unknown libsecret error";
-    return readCString(msgPtr);
-}
-function readCString(valuePtr) {
-    const bytes = [];
-    for (let i = 0;; i++) {
-        const v = read.u8(valuePtr, i);
-        if (v === 0)
-            break;
-        bytes.push(v);
+const glib = dlopen("libglib-2.0.so.0", { g_error_free: { args: ["ptr"], returns: "void" } });
+const gio = (() => {
+    try {
+        return dlopen("libgio-2.0.so.0", {
+            g_cancellable_new: { args: [], returns: "ptr" },
+            g_cancellable_cancel: { args: ["ptr"], returns: "void" },
+        });
     }
-    return dec.decode(new Uint8Array(bytes)) || "Unknown libsecret error";
+    catch {
+        return undefined;
+    }
+})();
+const gobject = dlopen("libgobject-2.0.so.0", {
+    g_object_unref: { args: ["ptr"], returns: "void" },
+});
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+const runtime = "bun";
+function cstr(value) {
+    const bytes = encoder.encode(value);
+    const result = new Uint8Array(bytes.length + 1);
+    result.set(bytes);
+    return result;
 }
-function throwIfError(errorOut) {
-    const errPtr = Number(new DataView(errorOut.buffer).getBigUint64(0, true));
-    if (!errPtr)
+function readCString(pointer) {
+    const bytes = [];
+    for (let index = 0;; index++) {
+        const value = read.u8(pointer, index);
+        if (value === 0)
+            return new Uint8Array(bytes);
+        bytes.push(value);
+    }
+}
+function schemaPointer(handle) {
+    const pointer = handle.valueOf();
+    if (handle.runtime !== runtime || typeof pointer !== "number")
+        throw new TypeError("Secret schema handle belongs to a different runtime.");
+    return pointer;
+}
+function passwordPointer(handle) {
+    const pointer = handle.valueOf();
+    if (handle.runtime !== runtime || typeof pointer !== "number")
+        throw new TypeError("Secret password handle belongs to a different runtime.");
+    return pointer;
+}
+function cancellablePointer(handle) {
+    prepareGCancellable(handle, runtime);
+    if (typeof handle.valueOf() !== "number")
+        throw new TypeError("GCancellable handle belongs to a different runtime.");
+    return handle.valueOf();
+}
+function captureError(errorOut, errorStorage) {
+    const error = new DataView(errorStorage.buffer, errorStorage.byteOffset, errorStorage.byteLength)
+        .getBigUint64(0, true);
+    if (error === 0n)
         return;
-    const msg = readErrorMessage(errPtr);
-    glib.symbols.g_error_free(errPtr);
-    throw new Error(msg);
+    const pointer = Number(error);
+    let message = "Unknown libsecret error";
+    try {
+        const messagePointer = read.ptr(pointer, 8);
+        message = messagePointer === null ? message : decoder.decode(readCString(messagePointer));
+    }
+    finally {
+        glib.symbols.g_error_free(pointer);
+    }
+    setLibsecretError(errorOut, new Error(message || "Unknown libsecret error"));
 }
-function getSchema() {
-    if (schemaPtr !== null)
-        return schemaPtr;
-    schemaPtr = Number(libsecret.symbols.secret_schema_new(keep(cstr("org.freedesktop.Secret.Generic")), 0, keep(cstr("service")), ATTR_STRING, keep(cstr("account")), ATTR_STRING, null));
-    return schemaPtr;
+function secretSchemaNew(name, flags, attributeName1, attributeType1, attributeName2, attributeType2, terminator) {
+    if (terminator !== null)
+        throw new TypeError("The libsecret attribute terminator must be null.");
+    const pointer = libsecret.symbols.secret_schema_new(ptr(cstr(name)), flags, ptr(cstr(attributeName1)), attributeType1, ptr(cstr(attributeName2)), attributeType2, terminator);
+    return pointer === null ? null : new SecretSchemaHandle(runtime, pointer);
+}
+function secretPasswordLookupSync(schema, cancellable, errorOut, attributeName1, attributeValue1, attributeName2, attributeValue2, terminator) {
+    if (terminator !== null)
+        throw new TypeError("The libsecret attribute terminator must be null.");
+    prepareLibsecretError(errorOut, runtime);
+    const errorStorage = new Uint8Array(8);
+    const pointer = libsecret.symbols.secret_password_lookup_sync(schemaPointer(schema), cancellable === null ? null : cancellablePointer(cancellable), ptr(errorStorage), ptr(cstr(attributeName1)), ptr(cstr(attributeValue1)), ptr(cstr(attributeName2)), ptr(cstr(attributeValue2)), terminator);
+    captureError(errorOut, errorStorage);
+    return pointer === null
+        ? null
+        : new SecretPasswordHandle(runtime, pointer, decoder.decode(readCString(pointer)));
+}
+function secretPasswordStoreSync(schema, collection, label, password, cancellable, errorOut, attributeName1, attributeValue1, attributeName2, attributeValue2, terminator) {
+    if (terminator !== null)
+        throw new TypeError("The libsecret attribute terminator must be null.");
+    prepareLibsecretError(errorOut, runtime);
+    const errorStorage = new Uint8Array(8);
+    const stored = libsecret.symbols.secret_password_store_sync(schemaPointer(schema), ptr(cstr(collection)), ptr(cstr(label)), ptr(cstr(password)), cancellable === null ? null : cancellablePointer(cancellable), ptr(errorStorage), ptr(cstr(attributeName1)), ptr(cstr(attributeValue1)), ptr(cstr(attributeName2)), ptr(cstr(attributeValue2)), terminator);
+    captureError(errorOut, errorStorage);
+    return Boolean(stored);
+}
+function secretPasswordClearSync(schema, cancellable, errorOut, attributeName1, attributeValue1, attributeName2, attributeValue2, terminator) {
+    if (terminator !== null)
+        throw new TypeError("The libsecret attribute terminator must be null.");
+    prepareLibsecretError(errorOut, runtime);
+    const errorStorage = new Uint8Array(8);
+    const cleared = libsecret.symbols.secret_password_clear_sync(schemaPointer(schema), cancellable === null ? null : cancellablePointer(cancellable), ptr(errorStorage), ptr(cstr(attributeName1)), ptr(cstr(attributeValue1)), ptr(cstr(attributeName2)), ptr(cstr(attributeValue2)), terminator);
+    captureError(errorOut, errorStorage);
+    return Boolean(cleared);
+}
+function secretPasswordFree(password) {
+    libsecret.symbols.secret_password_free(passwordPointer(password));
+}
+function cancellableNew() {
+    if (gio === undefined)
+        throw new Error("GIO is unavailable; install libgio-2.0 to use GCancellable operations.");
+    const pointer = gio.symbols.g_cancellable_new();
+    if (pointer === null)
+        throw new Error("Failed to create GCancellable.");
+    return new GCancellableHandle(runtime, pointer);
+}
+function cancellableCancel(cancellable) {
+    if (gio === undefined)
+        throw new Error("GIO is unavailable; install libgio-2.0 to use GCancellable operations.");
+    gio.symbols.g_cancellable_cancel(cancellablePointer(cancellable));
+}
+function cancellableRelease(cancellable) {
+    if (gio === undefined)
+        throw new Error("GIO is unavailable; install libgio-2.0 to use GCancellable operations.");
+    const pointer = cancellablePointer(cancellable);
+    releaseGCancellable(cancellable, runtime);
+    gobject.symbols.g_object_unref(pointer);
 }
 export const backend = {
-    getSecretBytes(service, account) {
-        const errorOut = new Uint8Array(8);
-        const p = Number(libsecret.symbols.secret_password_lookup_sync(getSchema(), null, ptr(errorOut), ptr(cstr("service")), ptr(cstr(service)), ptr(cstr("account")), ptr(cstr(account)), null));
-        throwIfError(errorOut);
-        if (!p)
-            return null;
-        try {
-            const bytes = [];
-            for (let i = 0;; i++) {
-                const v = read.u8(p, i);
-                if (v === 0)
-                    break;
-                bytes.push(v);
-            }
-            return new Uint8Array(bytes);
-        }
-        finally {
-            libsecret.symbols.secret_password_free(p);
-        }
-    },
-    setSecretBytes(service, account, secret) {
-        const errorOut = new Uint8Array(8);
-        const ok = libsecret.symbols.secret_password_store_sync(getSchema(), ptr(cstr("default")), ptr(cstr(`${service}/${account}`)), ptr(cstr(dec.decode(secret))), null, ptr(errorOut), ptr(cstr("service")), ptr(cstr(service)), ptr(cstr("account")), ptr(cstr(account)), null);
-        throwIfError(errorOut);
-        if (!ok)
-            throw new Error("Failed to store secret");
-    },
-    deleteSecret(service, account) {
-        const errorOut = new Uint8Array(8);
-        const ok = libsecret.symbols.secret_password_clear_sync(getSchema(), null, ptr(errorOut), ptr(cstr("service")), ptr(cstr(service)), ptr(cstr("account")), ptr(cstr(account)), null);
-        throwIfError(errorOut);
-        return !!ok;
-    },
-    list(_serviceName) {
-        throw new Error("linux-keyring list is not supported on Bun because Bun FFI crashes when reading libsecret retrievable results");
-    },
+    runtime,
+    secretSchemaNew,
+    secretPasswordLookupSync,
+    secretPasswordStoreSync,
+    secretPasswordClearSync,
+    secretPasswordFree,
+    ...(gio === undefined ? {} : {
+        gio: { cancellableNew, cancellableCancel, cancellableRelease },
+    }),
 };

@@ -1,83 +1,158 @@
-const globals = globalThis;
+/** Linux libsecret vault helpers. @module @neotales/linux-libsecret */
+import { isLinuxKeyringAvailable, Libsecret, LibsecretErrorHandle, listSecretRecords, } from "./ffi.js";
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
-let isSupported = false;
-let driver = {
-    getSecretBytes(_service, _account) {
+let schema = null;
+function validatePart(name, value) {
+    if (!value)
+        throw new RangeError(`${name} must not be empty.`);
+}
+function getSchema() {
+    if (schema !== null)
+        return schema;
+    const terminator = null;
+    const value = Libsecret.secretSchemaNew("org.freedesktop.Secret.Generic", 0, "service", 0, "account", 0, terminator);
+    if (value === null)
+        throw new Error("Failed to create libsecret schema.");
+    schema = value;
+    return value;
+}
+/**
+ * Returns whether libsecret is available in the current runtime.
+ *
+ * @returns `true` when Linux keyring operations are supported.
+ * @example
+ * ```ts
+ * import { isAvailable } from "@neotales/linux-libsecret";
+ *
+ * if (isAvailable()) console.log("Linux keyring is available");
+ * ```
+ */
+export function isAvailable() {
+    return isLinuxKeyringAvailable();
+}
+/**
+ * Reads a stored secret as raw bytes.
+ *
+ * @param service Keyring service name.
+ * @param account Keyring account name.
+ * @returns Stored secret bytes, or `null` when missing.
+ * @example
+ * ```ts
+ * import { getSecret } from "@neotales/linux-libsecret";
+ *
+ * const secret = getSecret("service", "account");
+ * ```
+ */
+export function getSecret(service, account) {
+    validatePart("service", service);
+    validatePart("account", account);
+    if (!isAvailable())
         return null;
-    },
-    setSecretBytes(_service, _account, _secret) {
-        return;
-    },
-    deleteSecret(_service, _account) {
-        return false;
-    },
-};
-if (globals.process?.platform === "linux" && globals.process.getBuiltinModule) {
+    const cancellable = null;
+    const terminator = null;
+    const errorOut = new LibsecretErrorHandle();
+    const password = Libsecret.secretPasswordLookupSync(getSchema(), cancellable, errorOut, "service", service, "account", account, terminator);
+    const error = errorOut.error();
+    if (error !== null)
+        throw error;
+    if (password === null)
+        return null;
     try {
-        const { createRequire } = globals.process.getBuiltinModule("node:module");
-        const require = createRequire(import.meta.url);
-        if (typeof globals.Deno !== "undefined") {
-            driver = require("./ffi_deno.js").backend;
-            isSupported = true;
-        }
-        else if (typeof globals.Bun !== "undefined") {
-            driver = require("./ffi_bun.js").backend;
-            isSupported = true;
-        }
-        else {
-            try {
-                if (globals.process.getBuiltinModule("node:ffi")) {
-                    driver = require("./ffi_node.js").backend;
-                    isSupported = true;
-                }
-                else {
-                    driver = require("./ffi_koffi.js").backend;
-                    isSupported = true;
-                }
-            }
-            catch (error) {
-                if (globals.process.env?.DEBUG === "true") {
-                    console.debug(error);
-                }
-            }
-        }
+        return encoder.encode(password.text());
     }
-    catch (error) {
-        if (globals.process?.env?.DEBUG === "true") {
-            console.debug(error);
-        }
+    finally {
+        Libsecret.secretPasswordFree(password);
     }
 }
 /**
- * Returns whether a libsecret backend is available in the current runtime.
+ * Reads and decodes a stored secret.
  *
- * @returns `true` when libsecret operations are supported.
+ * @param service Keyring service name.
+ * @param account Keyring account name.
+ * @returns Decoded secret text, or `null` when missing.
+ * @example
+ * ```ts
+ * import { getSecretString } from "@neotales/linux-libsecret";
+ *
+ * const secret = getSecretString("service", "account");
+ * ```
  */
-export function isLibsecretAvailable() {
-    return isSupported;
+export function getSecretString(service, account) {
+    const secret = getSecret(service, account);
+    return secret === null ? null : decoder.decode(secret);
 }
-/** Reads and decodes a stored secret. */
-export function readSecret(service, account) {
-    const bytes = driver.getSecretBytes(service, account);
-    return bytes === null ? null : decoder.decode(bytes);
-}
-/** Reads a stored secret as raw bytes. */
-export function getSecretBytes(service, account) {
-    return driver.getSecretBytes(service, account);
-}
-/** Stores or updates a secret. */
+/**
+ * Stores or updates a generic libsecret record.
+ *
+ * @param service Keyring service name.
+ * @param account Keyring account name.
+ * @param secret Secret text or bytes.
+ * @returns Nothing.
+ * @example
+ * ```ts
+ * import { saveSecret } from "@neotales/linux-libsecret";
+ *
+ * saveSecret("service", "account", "secret");
+ * ```
+ */
 export function saveSecret(service, account, secret) {
-    driver.setSecretBytes(service, account, typeof secret === "string" ? encoder.encode(secret) : secret);
+    validatePart("service", service);
+    validatePart("account", account);
+    if (!isAvailable())
+        return;
+    const cancellable = null;
+    const terminator = null;
+    const errorOut = new LibsecretErrorHandle();
+    const stored = Libsecret.secretPasswordStoreSync(getSchema(), "default", `${service}/${account}`, typeof secret === "string" ? secret : decoder.decode(secret), cancellable, errorOut, "service", service, "account", account, terminator);
+    const error = errorOut.error();
+    if (error !== null)
+        throw error;
+    if (!stored)
+        throw new Error("Failed to store secret.");
 }
-/** Deletes a secret. */
+/**
+ * Deletes a generic libsecret record.
+ *
+ * @param service Keyring service name.
+ * @param account Keyring account name.
+ * @returns `true` when a record was deleted.
+ * @example
+ * ```ts
+ * import { removeSecret } from "@neotales/linux-libsecret";
+ *
+ * removeSecret("service", "account");
+ * ```
+ */
 export function removeSecret(service, account) {
-    return driver.deleteSecret(service, account);
+    validatePart("service", service);
+    validatePart("account", account);
+    if (!isAvailable())
+        return false;
+    const cancellable = null;
+    const terminator = null;
+    const errorOut = new LibsecretErrorHandle();
+    const cleared = Libsecret.secretPasswordClearSync(getSchema(), cancellable, errorOut, "service", service, "account", account, terminator);
+    const error = errorOut.error();
+    if (error !== null)
+        throw error;
+    return cleared;
 }
-/** Lists secrets for a service when the backend supports enumeration. */
+/**
+ * Lists records for a keyring service.
+ *
+ * @param service Keyring service name.
+ * @returns Matching records with copied secret bytes.
+ * @example
+ * ```ts
+ * import { listSecrets } from "@neotales/linux-libsecret";
+ *
+ * const records = listSecrets("service");
+ * ```
+ */
 export function listSecrets(service) {
-    if (driver.list === undefined) {
-        throw new Error("linux-libsecret list is not supported by this runtime backend");
-    }
-    return driver.list(service);
+    validatePart("service", service);
+    if (!isAvailable())
+        return [];
+    return listSecretRecords(service);
 }

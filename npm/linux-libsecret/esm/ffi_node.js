@@ -1,4 +1,6 @@
+/** Node.js FFI bindings for Linux libsecret. */
 import process from "node:process";
+import { GCancellableHandle, prepareGCancellable, prepareLibsecretError, releaseGCancellable, SecretPasswordHandle, SecretSchemaHandle, setLibsecretError, } from "./types.js";
 const { createRequire } = process.getBuiltinModule("node:module");
 const require = createRequire(import.meta.url ?? "file:///");
 const ffi = require("node:ffi");
@@ -53,175 +55,229 @@ const libsecret = ffi.dlopen("libsecret-1.so.0", {
         arguments: ["pointer", "u32", "pointer", "pointer", "pointer", "pointer", "pointer"],
         return: "pointer",
     },
-    secret_retrievable_get_attributes: {
-        arguments: ["pointer"],
-        return: "pointer",
-    },
+    secret_retrievable_get_attributes: { arguments: ["pointer"], return: "pointer" },
     secret_retrievable_retrieve_secret_sync: {
         arguments: ["pointer", "pointer", "pointer"],
         return: "pointer",
     },
-    secret_value_get: {
-        arguments: ["pointer", "pointer"],
-        return: "pointer",
-    },
-    secret_value_unref: {
-        arguments: ["pointer"],
-        return: "void",
-    },
-    secret_password_free: {
-        arguments: ["pointer"],
-        return: "void",
-    },
+    secret_value_get: { arguments: ["pointer", "pointer"], return: "pointer" },
+    secret_value_unref: { arguments: ["pointer"], return: "void" },
+    secret_password_free: { arguments: ["pointer"], return: "void" },
 });
 const glib = ffi.dlopen("libglib-2.0.so.0", {
-    g_error_free: {
-        arguments: ["pointer"],
-        return: "void",
-    },
-    g_hash_table_lookup: {
-        arguments: ["pointer", "pointer"],
-        return: "pointer",
-    },
-    g_hash_table_unref: {
-        arguments: ["pointer"],
-        return: "void",
-    },
-    g_list_free: {
-        arguments: ["pointer"],
-        return: "void",
-    },
+    g_error_free: { arguments: ["pointer"], return: "void" },
+    g_hash_table_lookup: { arguments: ["pointer", "pointer"], return: "pointer" },
+    g_hash_table_unref: { arguments: ["pointer"], return: "void" },
+    g_list_free: { arguments: ["pointer"], return: "void" },
 });
 const gobject = ffi.dlopen("libgobject-2.0.so.0", {
-    g_object_unref: {
-        arguments: ["pointer"],
-        return: "void",
-    },
+    g_object_unref: { arguments: ["pointer"], return: "void" },
 });
-const enc = new TextEncoder();
-const dec = new TextDecoder();
-let schemaPtr = null;
-function cstr(value) {
-    const b = enc.encode(value);
-    const out = new Uint8Array(b.length + 1);
-    out.set(b);
-    return out;
-}
-function readCString(ptr) {
-    const bytes = [];
-    for (let i = 0;; i++) {
-        const b = ffi.getUint8(ptr, i);
-        if (b === 0)
-            break;
-        bytes.push(b);
+const gio = (() => {
+    try {
+        return ffi.dlopen("libgio-2.0.so.0", {
+            g_cancellable_new: { arguments: [], return: "pointer" },
+            g_cancellable_cancel: { arguments: ["pointer"], return: "void" },
+        });
     }
-    return new Uint8Array(bytes);
+    catch {
+        return undefined;
+    }
+})();
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+const runtime = "node";
+let listSchema = null;
+function cstr(value) {
+    const bytes = encoder.encode(value);
+    const result = new Uint8Array(bytes.length + 1);
+    result.set(bytes);
+    return result;
 }
-function readCStringText(ptr) {
-    return dec.decode(readCString(ptr));
+function readCString(pointer) {
+    const bytes = [];
+    for (let index = 0;; index++) {
+        const value = ffi.getUint8(pointer, index);
+        if (value === 0)
+            return new Uint8Array(bytes);
+        bytes.push(value);
+    }
 }
-function listDataPtr(listPtr) {
-    return ffi.getUint64(listPtr, 0);
+function schemaPointer(handle) {
+    if (handle.runtime !== runtime || typeof handle.valueOf() !== "bigint")
+        throw new TypeError("Secret schema handle belongs to a different runtime.");
+    return handle.valueOf();
 }
-function listNextPtr(listPtr) {
-    return ffi.getUint64(listPtr, 8);
+function passwordPointer(handle) {
+    if (handle.runtime !== runtime || typeof handle.valueOf() !== "bigint")
+        throw new TypeError("Secret password handle belongs to a different runtime.");
+    return handle.valueOf();
+}
+function cancellablePointer(handle) {
+    prepareGCancellable(handle, runtime);
+    if (typeof handle.valueOf() !== "bigint")
+        throw new TypeError("GCancellable handle belongs to a different runtime.");
+    return handle.valueOf();
 }
 function throwIfError(errorOut) {
-    const errPtr = new DataView(errorOut.buffer).getBigUint64(0, true);
-    if (!errPtr)
+    const error = new DataView(errorOut.buffer, errorOut.byteOffset, errorOut.byteLength)
+        .getBigUint64(0, true);
+    if (error === 0n)
         return;
-    const msgPtr = ffi.getUint64(errPtr, 8);
-    const msg = msgPtr ? dec.decode(readCString(msgPtr)) : "Unknown libsecret error";
-    glib.functions.g_error_free(errPtr);
-    throw new Error(msg);
+    const messagePointer = ffi.getUint64(error, 8);
+    const message = messagePointer
+        ? decoder.decode(readCString(messagePointer))
+        : "Unknown libsecret error";
+    glib.functions.g_error_free(error);
+    throw new Error(message);
 }
-function getSchema() {
-    if (schemaPtr !== null)
-        return schemaPtr;
-    const schema = libsecret.functions.secret_schema_new(cstr("org.freedesktop.Secret.Generic"), 0, cstr("service"), 0, cstr("account"), 0, null);
-    if (schema === null) {
-        throw new Error("Failed to create libsecret schema");
+function captureError(errorOut, errorStorage) {
+    const error = new DataView(errorStorage.buffer, errorStorage.byteOffset, errorStorage.byteLength)
+        .getBigUint64(0, true);
+    if (error === 0n)
+        return;
+    let message = "Unknown libsecret error";
+    try {
+        const messagePointer = ffi.getUint64(error, 8);
+        message = messagePointer ? decoder.decode(readCString(messagePointer)) : message;
     }
-    schemaPtr = schema;
-    return schema;
+    finally {
+        glib.functions.g_error_free(error);
+    }
+    setLibsecretError(errorOut, new Error(message || "Unknown libsecret error"));
 }
-export const backend = {
-    getSecretBytes(service, account) {
-        const errorOut = new Uint8Array(8);
-        const p = libsecret.functions.secret_password_lookup_sync(getSchema(), null, errorOut, cstr("service"), cstr(service), cstr("account"), cstr(account), null);
-        throwIfError(errorOut);
-        if (!p)
-            return null;
-        try {
-            return readCString(p);
-        }
-        finally {
-            libsecret.functions.secret_password_free(p);
-        }
-    },
-    setSecretBytes(service, account, secret) {
-        const errorOut = new Uint8Array(8);
-        const ok = libsecret.functions.secret_password_store_sync(getSchema(), cstr("default"), cstr(`${service}/${account}`), cstr(dec.decode(secret)), null, errorOut, cstr("service"), cstr(service), cstr("account"), cstr(account), null);
-        throwIfError(errorOut);
-        if (!ok)
-            throw new Error("Failed to store secret");
-    },
-    deleteSecret(service, account) {
-        const errorOut = new Uint8Array(8);
-        const ok = libsecret.functions.secret_password_clear_sync(getSchema(), null, errorOut, cstr("service"), cstr(service), cstr("account"), cstr(account), null);
-        throwIfError(errorOut);
-        return !!ok;
-    },
-    list(serviceName) {
-        const errorOut = new Uint8Array(8);
-        const list = libsecret.functions.secret_password_search_sync(getSchema(), 2, null, errorOut, cstr("service"), cstr(serviceName), null);
-        throwIfError(errorOut);
-        if (!list)
-            return [];
-        const results = [];
-        try {
-            for (let node = list; node; node = listNextPtr(node)) {
-                const retrievable = listDataPtr(node);
-                if (!retrievable)
+function secretSchemaNew(name, flags, attributeName1, attributeType1, attributeName2, attributeType2, terminator) {
+    if (terminator !== null)
+        throw new TypeError("The libsecret attribute terminator must be null.");
+    const pointer = libsecret.functions.secret_schema_new(cstr(name), flags, cstr(attributeName1), attributeType1, cstr(attributeName2), attributeType2, terminator);
+    return pointer ? new SecretSchemaHandle(runtime, pointer) : null;
+}
+function secretPasswordLookupSync(schema, cancellable, errorOut, attributeName1, attributeValue1, attributeName2, attributeValue2, terminator) {
+    if (terminator !== null)
+        throw new TypeError("The libsecret attribute terminator must be null.");
+    prepareLibsecretError(errorOut, runtime);
+    const errorStorage = new Uint8Array(8);
+    const pointer = libsecret.functions.secret_password_lookup_sync(schemaPointer(schema), cancellable === null ? null : cancellablePointer(cancellable), errorStorage, cstr(attributeName1), cstr(attributeValue1), cstr(attributeName2), cstr(attributeValue2), terminator);
+    captureError(errorOut, errorStorage);
+    return pointer
+        ? new SecretPasswordHandle(runtime, pointer, decoder.decode(readCString(pointer)))
+        : null;
+}
+function secretPasswordStoreSync(schema, collection, label, password, cancellable, errorOut, attributeName1, attributeValue1, attributeName2, attributeValue2, terminator) {
+    if (terminator !== null)
+        throw new TypeError("The libsecret attribute terminator must be null.");
+    prepareLibsecretError(errorOut, runtime);
+    const errorStorage = new Uint8Array(8);
+    const stored = libsecret.functions.secret_password_store_sync(schemaPointer(schema), cstr(collection), cstr(label), cstr(password), cancellable === null ? null : cancellablePointer(cancellable), errorStorage, cstr(attributeName1), cstr(attributeValue1), cstr(attributeName2), cstr(attributeValue2), terminator);
+    captureError(errorOut, errorStorage);
+    return Boolean(stored);
+}
+function secretPasswordClearSync(schema, cancellable, errorOut, attributeName1, attributeValue1, attributeName2, attributeValue2, terminator) {
+    if (terminator !== null)
+        throw new TypeError("The libsecret attribute terminator must be null.");
+    prepareLibsecretError(errorOut, runtime);
+    const errorStorage = new Uint8Array(8);
+    const cleared = libsecret.functions.secret_password_clear_sync(schemaPointer(schema), cancellable === null ? null : cancellablePointer(cancellable), errorStorage, cstr(attributeName1), cstr(attributeValue1), cstr(attributeName2), cstr(attributeValue2), terminator);
+    captureError(errorOut, errorStorage);
+    return Boolean(cleared);
+}
+function secretPasswordFree(password) {
+    libsecret.functions.secret_password_free(passwordPointer(password));
+}
+function cancellableNew() {
+    if (gio === undefined)
+        throw new Error("GIO is unavailable; install libgio-2.0 to use GCancellable operations.");
+    const pointer = gio.functions.g_cancellable_new();
+    if (!pointer)
+        throw new Error("Failed to create GCancellable.");
+    return new GCancellableHandle(runtime, pointer);
+}
+function cancellableCancel(cancellable) {
+    if (gio === undefined)
+        throw new Error("GIO is unavailable; install libgio-2.0 to use GCancellable operations.");
+    gio.functions.g_cancellable_cancel(cancellablePointer(cancellable));
+}
+function cancellableRelease(cancellable) {
+    if (gio === undefined)
+        throw new Error("GIO is unavailable; install libgio-2.0 to use GCancellable operations.");
+    const pointer = cancellablePointer(cancellable);
+    releaseGCancellable(cancellable, runtime);
+    gobject.functions.g_object_unref(pointer);
+}
+function getListSchema() {
+    if (listSchema === null) {
+        const schema = secretSchemaNew("org.freedesktop.Secret.Generic", 0, "service", 0, "account", 0, null);
+        if (schema === null)
+            throw new Error("Failed to create libsecret schema.");
+        listSchema = schema;
+    }
+    return listSchema;
+}
+function listDataPointer(list) {
+    return ffi.getUint64(list, 0);
+}
+function listNextPointer(list) {
+    return ffi.getUint64(list, 8);
+}
+function listSecretRecords(service) {
+    const errorOut = new Uint8Array(8);
+    const list = libsecret.functions.secret_password_search_sync(schemaPointer(getListSchema()), 2, null, errorOut, cstr("service"), cstr(service), null);
+    throwIfError(errorOut);
+    if (!list)
+        return [];
+    const records = [];
+    try {
+        for (let node = list; node; node = listNextPointer(node)) {
+            const retrievable = listDataPointer(node);
+            if (!retrievable)
+                continue;
+            const attributes = libsecret.functions.secret_retrievable_get_attributes(retrievable);
+            try {
+                const account = glib.functions.g_hash_table_lookup(attributes, cstr("account"));
+                if (!account)
                     continue;
-                const attributes = libsecret.functions.secret_retrievable_get_attributes(retrievable);
+                const secretError = new Uint8Array(8);
+                const value = libsecret.functions.secret_retrievable_retrieve_secret_sync(retrievable, null, secretError);
+                throwIfError(secretError);
+                if (!value)
+                    continue;
                 try {
-                    const accountPtr = glib.functions.g_hash_table_lookup(attributes, cstr("account"));
-                    if (!accountPtr)
-                        continue;
-                    const secretErrorOut = new Uint8Array(8);
-                    const value = libsecret.functions.secret_retrievable_retrieve_secret_sync(retrievable, null, secretErrorOut);
-                    throwIfError(secretErrorOut);
-                    if (!value)
-                        continue;
-                    try {
-                        const lengthOut = new Uint8Array(8);
-                        const secretPtr = libsecret.functions.secret_value_get(value, lengthOut);
-                        if (!secretPtr)
-                            continue;
-                        results.push({
-                            service: serviceName,
-                            account: readCStringText(accountPtr),
-                            secret: readCStringText(secretPtr),
+                    const secret = libsecret.functions.secret_value_get(value, new Uint8Array(8));
+                    if (secret)
+                        records.push({
+                            service,
+                            account: decoder.decode(readCString(account)),
+                            secret: readCString(secret),
                         });
-                    }
-                    finally {
-                        libsecret.functions.secret_value_unref(value);
-                    }
                 }
                 finally {
-                    glib.functions.g_hash_table_unref(attributes);
+                    libsecret.functions.secret_value_unref(value);
                 }
             }
-        }
-        finally {
-            for (let node = list; node; node = listNextPtr(node)) {
-                const retrievable = listDataPtr(node);
-                if (retrievable)
-                    gobject.functions.g_object_unref(retrievable);
+            finally {
+                glib.functions.g_hash_table_unref(attributes);
             }
-            glib.functions.g_list_free(list);
         }
-        return results;
-    },
+    }
+    finally {
+        for (let node = list; node; node = listNextPointer(node)) {
+            const retrievable = listDataPointer(node);
+            if (retrievable)
+                gobject.functions.g_object_unref(retrievable);
+        }
+        glib.functions.g_list_free(list);
+    }
+    return records;
+}
+export const backend = {
+    runtime,
+    secretSchemaNew,
+    secretPasswordLookupSync,
+    secretPasswordStoreSync,
+    secretPasswordClearSync,
+    secretPasswordFree,
+    ...(gio === undefined ? {} : {
+        gio: { cancellableNew, cancellableCancel, cancellableRelease },
+    }),
+    listSecretRecords,
 };
