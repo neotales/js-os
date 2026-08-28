@@ -1,7 +1,7 @@
 /** Node.js FFI backend for macOS Keychain. */
 
 import { createRequire } from "node:module";
-import type { DarwinKeychainBackend } from "./types.ts";
+import type { DarwinKeychainBackend, SecretRecord } from "./types.ts";
 
 const require = createRequire(import.meta.url);
 // deno-lint-ignore no-explicit-any -- node:ffi has no ambient type declarations.
@@ -29,13 +29,27 @@ const sec = ffi.dlopen("/System/Library/Frameworks/Security.framework/Security",
   },
   SecKeychainItemDelete: { arguments: ["pointer"], return: "i32" },
   SecKeychainItemFreeContent: { arguments: ["pointer", "pointer"], return: "i32" },
+  SecKeychainSearchCreateFromAttributes: {
+    arguments: ["pointer", "i32", "pointer", "pointer"],
+    return: "i32",
+  },
+  SecKeychainSearchCopyNext: { arguments: ["pointer", "pointer"], return: "i32" },
+  SecKeychainItemCopyAttributesAndData: {
+    arguments: ["pointer", "pointer", "pointer", "pointer", "pointer", "pointer"],
+    return: "i32",
+  },
+  SecKeychainItemFreeAttributesAndData: { arguments: ["pointer", "pointer"], return: "i32" },
 });
 const cf = ffi.dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", {
   CFRelease: { arguments: ["pointer"], return: "void" },
 });
 
 const ERR_ITEM_NOT_FOUND = -25300;
+const ITEM_CLASS_GENERIC_PASSWORD = 0x67656e70;
+const ATTR_SERVICE = 0x73766365;
+const ATTR_ACCOUNT = 0x61636374;
 const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
 function check(status: number, operation: string): void {
   if (status !== 0)
@@ -44,6 +58,71 @@ function check(status: number, operation: string): void {
 
 function readPointer(buffer: Uint8Array): bigint {
   return new DataView(buffer.buffer).getBigUint64(0, true);
+}
+
+function readBytes(pointer: bigint, length: number): Uint8Array {
+  return new Uint8Array(ffi.toArrayBuffer(pointer, length));
+}
+
+function serviceAttributes(service: string): {
+  serviceBytes: Uint8Array;
+  attribute: Uint8Array;
+  list: Uint8Array;
+} {
+  const serviceBytes = encoder.encode(service);
+  const attribute = new Uint8Array(16);
+  const attributeView = new DataView(attribute.buffer);
+  attributeView.setUint32(0, ATTR_SERVICE, true);
+  attributeView.setUint32(4, serviceBytes.length, true);
+  attributeView.setBigUint64(8, ffi.getRawPointer(serviceBytes), true);
+
+  const list = new Uint8Array(16);
+  const listView = new DataView(list.buffer);
+  listView.setUint32(0, 1, true);
+  listView.setBigUint64(8, ffi.getRawPointer(attribute), true);
+  return { serviceBytes, attribute, list };
+}
+
+function accountForItem(item: bigint): string {
+  const tag = new Uint8Array(4);
+  const format = new Uint8Array(4);
+  new DataView(tag.buffer).setUint32(0, ATTR_ACCOUNT, true);
+
+  const info = new Uint8Array(24);
+  const infoView = new DataView(info.buffer);
+  infoView.setUint32(0, 1, true);
+  infoView.setBigUint64(8, ffi.getRawPointer(tag), true);
+  infoView.setBigUint64(16, ffi.getRawPointer(format), true);
+
+  const attributes = new Uint8Array(8);
+  const length = new Uint8Array(4);
+  const status = sec.functions.SecKeychainItemCopyAttributesAndData(
+    item,
+    info,
+    null,
+    attributes,
+    length,
+    null,
+  );
+  if (status !== 0)
+    return "";
+  const attributeList = readPointer(attributes);
+  if (!attributeList)
+    return "";
+  try {
+    if (ffi.getUint32(attributeList, 0) === 0)
+      return "";
+    const attribute = ffi.getUint64(attributeList, 8);
+    if (!attribute || ffi.getUint32(attribute, 0) !== ATTR_ACCOUNT)
+      return "";
+    const byteLength = ffi.getUint32(attribute, 4);
+    const data = ffi.getUint64(attribute, 8);
+    if (!data || byteLength === 0)
+      return "";
+    return decoder.decode(readBytes(data, byteLength));
+  } finally {
+    sec.functions.SecKeychainItemFreeAttributesAndData(attributeList, null);
+  }
 }
 
 function find(service: string, account: string): {
@@ -92,7 +171,7 @@ export const backend: DarwinKeychainBackend = {
     if (!found)
       return null;
     try {
-      return new Uint8Array(ffi.toArrayBuffer(found.data, found.length));
+      return readBytes(found.data, found.length);
     } finally {
       release(found);
     }
@@ -145,5 +224,46 @@ export const backend: DarwinKeychainBackend = {
     } finally {
       release(found);
     }
+  },
+  listSecrets(service): SecretRecord[] {
+    const { serviceBytes: _serviceBytes, attribute: _attribute, list } = serviceAttributes(service);
+    const search = new Uint8Array(8);
+    const status = sec.functions.SecKeychainSearchCreateFromAttributes(
+      null,
+      ITEM_CLASS_GENERIC_PASSWORD,
+      list,
+      search,
+    );
+    if (status === ERR_ITEM_NOT_FOUND)
+      return [];
+    check(status, "SecKeychainSearchCreateFromAttributes");
+    const searchPointer = readPointer(search);
+    if (!searchPointer)
+      return [];
+    const records: SecretRecord[] = [];
+    try {
+      while (true) {
+        const item = new Uint8Array(8);
+        const next = sec.functions.SecKeychainSearchCopyNext(searchPointer, item);
+        if (next !== 0)
+          break;
+        const itemPointer = readPointer(item);
+        if (!itemPointer)
+          break;
+        try {
+          const account = accountForItem(itemPointer);
+          if (!account)
+            continue;
+          const secret = this.getSecretBytes(service, account);
+          if (secret !== null)
+            records.push({ service, account, secret });
+        } finally {
+          cf.functions.CFRelease(itemPointer);
+        }
+      }
+    } finally {
+      cf.functions.CFRelease(searchPointer);
+    }
+    return records;
   },
 };
