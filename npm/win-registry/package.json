@@ -1,13 +1,12 @@
 {
   "name": "@neotales/win-registry",
-  "version": "0.0.0-alpha.2",
-  "description": "Cross-runtime Windows Registry API using runtime-specific FFI backends.",
+  "version": "0.0.0",
+  "description": "Windows Registry API for Node, Bun, and Deno.",
   "keywords": [
-    "advapi32",
-    "cross-runtime",
-    "ffi",
     "registry",
     "win32",
+    "windows-registry",
+    "ffi",
     "windows"
   ],
   "homepage": "https://github.com/neotales/js-os",

@@ -1,10 +1,11 @@
 {
   "name": "@neotales/win-cred",
-  "version": "0.0.0-alpha.1",
-  "description": "Windows Credential Manager access using runtime-specific FFI backends.",
+  "version": "0.0.0",
+  "description": "Windows Credential Manager API for Node, Bun, and Deno.",
   "keywords": [
     "credential",
     "credman",
+    "secrets",
     "ffi",
     "koffi",
     "windows"

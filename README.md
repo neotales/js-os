@@ -7,15 +7,24 @@ as two packages: a Deno-only JSR package in `jsr/` and a cross-runtime npm packa
 
 ## Modules
 
-| Module            | Platforms | Description                                                                  |
-| ----------------- | --------- | ---------------------------------------------------------------------------- |
-| `is-elevated`     | All       | Detect whether the current process is running with elevated privileges.      |
-| `win-registry`    | Windows   | Read and write the Windows Registry via FFI.                                 |
-| `win-cred`        | Windows   | Windows Credential Manager read/write/list helpers.                          |
-| `darwin-keychain` | macOS     | macOS Keychain secret storage helpers.                                       |
-| `linux-libsecret` | Linux     | Secret storage backed by `libsecret` (GNOME Keyring/KWallet Secret Service). |
+| Module            | JSR                        | npm                        | Platforms | Description                                                                  |
+| ----------------- | -------------------------- | -------------------------- | --------- | ---------------------------------------------------------------------------- |
+| `is-elevated`     | [JSR][jsr-is-elevated]     | [npm][npm-is-elevated]     | All       | Detect whether the current process is running with elevated privileges.      |
+| `win-registry`    | [JSR][jsr-win-registry]    | [npm][npm-win-registry]    | Windows   | Read and write the Windows Registry via FFI.                                 |
+| `win-cred`        | [JSR][jsr-win-cred]        | [npm][npm-win-cred]        | Windows   | Windows Credential Manager read/write/list helpers.                          |
+| `darwin-keychain` | [JSR][jsr-darwin-keychain] | [npm][npm-darwin-keychain] | macOS     | macOS Keychain secret storage helpers.                                       |
+| `linux-libsecret` | [JSR][jsr-linux-libsecret] | [npm][npm-linux-libsecret] | Linux     | Secret storage backed by `libsecret` (GNOME Keyring/KWallet Secret Service). |
 
 Planned modules are tracked in [docs/ROADMAP.md](./docs/ROADMAP.md).
+
+## Stability
+
+Each library may introduce breaking changes before reaching `1.0.0`. After `1.0.0`, a breaking
+change requires a major-version release.
+
+Most modules are thin wrappers around operating-system APIs and should not need substantial changes
+unless the operating system changes an API or a bug requires a fix. Once a module is stable, releases
+may stop as long as it continues to work with future Node.js, Deno, and Bun versions.
 
 ## Workflow
 
@@ -77,3 +86,14 @@ as recommended by jsr.io, so no JSR token is required.
 ## License
 
 [MIT](./LICENSE.md)
+
+[jsr-is-elevated]: ./jsr/is-elevated/README.md
+[npm-is-elevated]: ./npm/is-elevated/README.md
+[jsr-win-registry]: ./jsr/win-registry/README.md
+[npm-win-registry]: ./npm/win-registry/README.md
+[jsr-win-cred]: ./jsr/win-cred/README.md
+[npm-win-cred]: ./npm/win-cred/README.md
+[jsr-darwin-keychain]: ./jsr/darwin-keychain/README.md
+[npm-darwin-keychain]: ./npm/darwin-keychain/README.md
+[jsr-linux-libsecret]: ./jsr/linux-libsecret/README.md
+[npm-linux-libsecret]: ./npm/linux-libsecret/README.md

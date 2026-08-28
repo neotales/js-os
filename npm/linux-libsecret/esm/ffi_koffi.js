@@ -121,9 +121,9 @@ function cancellableCancel(cancellable) {
 function cancellableRelease(cancellable) {
     if (gio === undefined)
         throw new Error("GIO is unavailable; install libgio-2.0 to use GCancellable operations.");
-    const pointer = cancellablePointer(cancellable);
+    const cancellableValue = cancellablePointer(cancellable);
     releaseGCancellable(cancellable, runtime);
-    g_object_unref(pointer);
+    g_object_unref(cancellableValue);
 }
 function getListSchema() {
     if (listSchema === null) {

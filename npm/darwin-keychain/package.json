@@ -1,12 +1,14 @@
 {
   "name": "@neotales/darwin-keychain",
-  "version": "0.0.0-alpha.3",
-  "description": "macOS keychain API for Node, Bun, and Deno.",
+  "version": "0.0.0",
+  "description": "macOS Keychain API for Node, Bun, and Deno.",
   "keywords": [
     "darwin",
     "keychain",
     "macos",
     "osx",
+    "secrets",
+    "ffi",
     "security-framework"
   ],
   "homepage": "https://github.com/neotales/js-os",

@@ -1,6 +1,6 @@
 {
   "name": "@neotales/win-cred",
-  "version": "0.0.0-alpha.1",
+  "version": "0.0.0",
   "description": "Windows Credential Manager secret storage using runtime-specific FFI backends.",
   "license": "MIT",
   "exports": {

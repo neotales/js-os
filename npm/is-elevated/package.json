@@ -1,14 +1,17 @@
 {
   "name": "@neotales/is-elevated",
-  "version": "0.0.0-alpha.2",
-  "description": "Detect whether the current process is elevated.",
+  "version": "0.0.0",
+  "description": "isElevated function determines if the current process is running elevated (admin/root) across windows, linux, and darwin platforms.",
   "keywords": [
     "admin",
     "elevated",
     "root",
     "std",
     "sudo",
-    "windows"
+    "windows",
+    "linux",
+    "darwin",
+    "is-elevated"
   ],
   "homepage": "https://github.com/neotales/js-os",
   "bugs": {

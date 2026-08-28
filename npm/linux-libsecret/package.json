@@ -1,10 +1,12 @@
 {
   "name": "@neotales/linux-libsecret",
-  "version": "0.0.0-alpha.1",
+  "version": "0.0.0",
   "description": "Linux libsecret API for Node, Bun, and Deno.",
   "keywords": [
     "libsecret",
     "keyring",
+    "secrects",
+    "ffi",
     "linux",
     "secret-service"
   ],
